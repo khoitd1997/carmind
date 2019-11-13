@@ -18,6 +18,7 @@ include $(base_makefile_dir)/*.mk
 
 final_c_flag = $(CFLAGS)
 # final_c_flag_filtered_1 = $(filter-out $(C_INCLUDES),$(final_c_flag))
+final_c_flag_subbed := $(subst ",\\",$(final_c_flag))
 # final_c_flag_filtered_final = $(filter-out -MF"$(@:%.o=%.d)",$(final_c_flag_filtered_1))
 
 pattern = -T%
@@ -42,9 +43,9 @@ generate_cmake_toolchain:
 	@echo "set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)" >> $(output_cmake_toolchain_file)
 	@echo "set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)" >> $(output_cmake_toolchain_file)
 
-	@echo "set(CMAKE_CXX_FLAGS \"$(final_c_flag)\")" >> $(output_cmake_toolchain_file)
+	@echo "set(CMAKE_CXX_FLAGS \"$(final_c_flag_subbed)\")" >> $(output_cmake_toolchain_file)
 	@echo "list(REMOVE_DUPLICATES CMAKE_CXX_FLAGS)" >> $(output_cmake_toolchain_file)
-	@echo "set(CMAKE_C_FLAGS \" -std=gnu11 $(final_c_flag)\")" >> $(output_cmake_toolchain_file)
+	@echo "set(CMAKE_C_FLAGS \" -std=gnu11 $(final_c_flag_subbed)\")" >> $(output_cmake_toolchain_file)
 	@echo "list(REMOVE_DUPLICATES CMAKE_C_FLAGS)" >> $(output_cmake_toolchain_file)
 	# -x assembler-with-cpp
 	@echo "set(CMAKE_ASM_FLAGS \"$(ASMFLAGS)\")" >> $(output_cmake_toolchain_file)
