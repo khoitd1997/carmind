@@ -2,8 +2,8 @@ PROJECT_NAME     := blinky_pca10040_s132
 TARGETS          := nrf52832_xxaa
 OUTPUT_DIRECTORY := _build
 
-SDK_ROOT := ../../../../../..
-PROJ_DIR := ../../..
+SDK_ROOT := /home/kd/carmind/nrf_sdk/sdk
+PROJ_DIR := 
 
 $(OUTPUT_DIRECTORY)/nrf52832_xxaa.out: \
   LINKER_SCRIPT  := blinky_gcc_nrf52.ld
@@ -42,7 +42,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/softdevice/s132/headers/nrf52 \
   $(SDK_ROOT)/components/toolchain/cmsis/include \
   $(SDK_ROOT)/components/libraries/util \
-  ../config \
+\
   $(SDK_ROOT)/components/libraries/balloc \
   $(SDK_ROOT)/components/libraries/ringbuf \
   $(SDK_ROOT)/modules/nrfx/hal \
@@ -144,7 +144,7 @@ TEMPLATE_PATH := $(SDK_ROOT)/components/toolchain/gcc
 
 include $(TEMPLATE_PATH)/Makefile.common
 
-$(foreach target, $(TARGETS), $(call define_target, $(target)))
+
 
 .PHONY: flash flash_softdevice erase
 
@@ -163,7 +163,7 @@ flash_softdevice:
 erase:
 	nrfjprog -f nrf52 --eraseall
 
-SDK_CONFIG_FILE := ../config/sdk_config.h
+# SDK_CONFIG_FILE := ../config/sdk_config.h
 CMSIS_CONFIG_TOOL := $(SDK_ROOT)/external_tools/cmsisconfig/CMSIS_Configuration_Wizard.jar
 sdk_config:
 	java -jar $(CMSIS_CONFIG_TOOL) $(SDK_CONFIG_FILE)
