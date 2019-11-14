@@ -2,6 +2,23 @@
 
 Car parking spot reminder
 
+## Phone App
+
+[Nordic Android BLE Connection Library](https://github.com/NordicSemiconductor/Android-BLE-Library)
+[Nordic Android BLE Scanner Library](https://github.com/NordicSemiconductor/Android-Scanner-Compat-Library)
+
+## Power Calculations
+
+[BLE Advertising](https://www.argenox.com/library/bluetooth-low-energy/ble-advertising-primer/)
+
+The BNO055 has a pretty high power consumption(400 uA at lower power mode), so it makes more sense to use the BLE whenever possble for same functionality(currents on order of 50 uA). Although note that timing change results in non-linear power change to optimize properly
+
+BLE calculation figure comes from Nordic power calculator, assuming external crystal. These figure may change drastically since iOS and Android also has guideline regarding BLE timing
+
+There should be 2 geofences, one for when we got to the parking lot and one where we are near the parking lot, the near one will trigger about 2 minutes before we get there and start scanning for nrf52 and do all connection and initialization there
+
+- 2.9uA for connectable advertising with interval 10s: Used for app to connect to nrf52
+
 ## Sensor Notes
 
 BNO055 constantly calibrates itself, at power-on, the calibration is 0, and it is advised to not trust values until the calibration value changes
@@ -13,6 +30,8 @@ At boot, is in configuration mode, to get data need to change to either fusion o
 The sensor has a fusion mode which are basically pre-set settings for various sensors in the DOF, sensors like accelerometers will have a more limited set of options when in fusion mode since the pre-set already fixes a couple of options
 
 ### Data Output
+
+All types of data is 2 bytes on each axis
 
 Linear acceleration is acceleration without the gravity component, the gravity component can be separtely obtained
 
@@ -47,6 +66,8 @@ Axis can be reconfigured
 ![](image/2019-11-14-12-37-03.png)
 
 ![](image/2019-11-14-12-37-31.png)
+
+![](image/2019-11-14-13-30-53.png)
 
 ### Interrupt
 
