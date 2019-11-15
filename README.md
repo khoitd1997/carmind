@@ -2,6 +2,20 @@
 
 Car parking spot reminder
 
+## Nordic API
+
+[BLE Docs](https://infocenter.nordicsemi.com/index.jsp?topic=%2Fsdk_nrf5_v16.0.0%2Fexamples_ble.html&cp=6_1_4_2j)
+[Peripheral Docs](https://infocenter.nordicsemi.com/index.jsp?topic=%2Fsdk_nrf5_v16.0.0%2Fexamples_hw_peripheral_devices.html&cp=6_1_4_6)
+[API Docs](https://infocenter.nordicsemi.com/index.jsp?topic=%2Fsdk_nrf5_v16.0.0%2Fmodules.html&cp=6_1_6)
+[Data Structure Docs](https://infocenter.nordicsemi.com/index.jsp?topic=%2Fsdk_nrf5_v16.0.0%2Fusergroup0.html&cp=6_1_7)
+[Scheduler Example](https://infocenter.nordicsemi.com/index.jsp?topic=%2Fsdk_nrf5_v16.0.0%2Flib_scheduler.html)
+
+The program is callback heavy and uses a pub/sub model to know who to call when events happen entities like BLE services and BLE events may allow users to register callbacks. It's also pretty macro-heavy and the main file is usually pretty big
+
+The SoftDevice has its own stack and changing its config parameter may change the size so make sure to check if the current size is correct
+
+![](image/2019-11-14-20-10-11.png)
+
 ## Phone App
 
 ### General Flow
@@ -87,7 +101,7 @@ Interrupt is rising edge. Configured to detect starting motion and no-motion wit
 
 ![](image/2019-11-14-12-06-56.png)
 
-## Concept Notes
+## Sensor Concept Notes
 
 The BNO055 has built-in sensor fusion already that takes in raw acceleration, gyro and magnetometer and spit out oritentation and acceleration in separate components like gravity and linear.
 
