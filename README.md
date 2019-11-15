@@ -4,6 +4,18 @@ Car parking spot reminder
 
 ## Phone App
 
+### General Flow
+
+Future work if have time is to automatically download maps when user wants to go somewhere using integration to things like Google Maps API
+
+Use Navigation Drawer Activity, 3 tabs:
+
+- Current: Show current spot including parking location, detailed parking position like floor, section, and stall number or proximitiy from a landmark
+- Archive: Search for past parking position using filter like dates, parking location
+- Edit: Allow for config like adding more maps
+
+### BLE
+
 [Nordic Android BLE Connection Library](https://github.com/NordicSemiconductor/Android-BLE-Library)
 [Nordic Android BLE Scanner Library](https://github.com/NordicSemiconductor/Android-Scanner-Compat-Library)
 
