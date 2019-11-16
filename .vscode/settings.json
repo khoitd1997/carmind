@@ -1,3 +1,19 @@
 {
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "files.associations": {
+        "*.cu": "c",
+        "*.tdd": "makefile",
+        "*.cfg": "tcl",
+        "*.svd": "xml",
+        "*.emProject": "xml",
+        "*.emSession": "xml",
+        "*.hpp": "cpp",
+        "*.ks": "shellscript",
+        "*.rasi": "css",
+        "*.in": "cmake",
+        "conanfile.txt": "toml",
+        "nrf_log_default_backends.h": "c",
+        "nrf_delay.h": "c",
+        "nrf_drv_twi.h": "c"
+    }
 }

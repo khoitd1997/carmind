@@ -23,6 +23,12 @@
             "type": "shell",
             "command": "nrfjprog -f nrf52 --eraseall",
             "problemMatcher": []
+        },
+        {
+            "label": "configure cmsis",
+            "type": "shell",
+            "command": "java -jar ${workspaceFolder}/nrf_sdk/sdk/external_tools/cmsisconfig/CMSIS_Configuration_Wizard.jar ${workspaceFolder}/src/sdk_config.h",
+            "problemMatcher": []
         }
     ]
 }
