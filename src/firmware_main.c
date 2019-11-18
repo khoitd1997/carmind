@@ -54,6 +54,7 @@
 #include "app_util_platform.h"
 #include "boards.h"
 #include "nrf_delay.h"
+#include "nrf_drv_gpiote.h"
 #include "nrf_drv_twi.h"
 
 #include "nrf_log.h"
@@ -63,6 +64,7 @@
 #include "bno055.h"
 
 #define BNO055_TWI_BUF_LEN 100
+#define DOF_INT_PIN 20
 typedef struct {
   // orientation in degree
   double eulerRoll;
@@ -120,6 +122,17 @@ s8 bno055I2CBusRead(u8 devAddr, u8 regAddr, u8* regData, u8 cnt) {
 }
 void bno055DelayMs(u32 ms) { nrf_delay_ms((unsigned int)ms); }
 
+void dofIntHandler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
+  if (DOF_INT_PIN == pin && NRF_GPIOTE_POLARITY_LOTOHI == action) {
+    u8 intStat;
+    bno055_get_intr_stat(&intStat);
+    bno055_set_intr_rst(BNO055_BIT_ENABLE);
+    //   BNO055_GET_BITSLICE(data_u8r, BNO055_INTR_STAT_GYRO_ANY_MOTION);
+    NRF_LOG_INFO("\r\nIn interrupt %d", intStat);
+    NRF_LOG_FLUSH();
+  }
+}
+
 ret_code_t dofInit(DOFSensor* dof) {
   dof->devAddr = BNO055_I2C_ADDR1;
 
@@ -129,6 +142,10 @@ ret_code_t dofInit(DOFSensor* dof) {
   dof->bno055.dev_addr   = dof->devAddr;
 
   s32 ret = bno055_init(&(dof->bno055));
+  ret += bno055_set_power_mode(BNO055_POWER_MODE_NORMAL);
+  ret += bno055_set_sys_rst(BNO055_BIT_ENABLE);
+
+  ret += bno055_init(&(dof->bno055));
   ret += bno055_set_power_mode(BNO055_POWER_MODE_NORMAL);
   ret += bno055_set_operation_mode(BNO055_OPERATION_MODE_NDOF);
 
@@ -142,8 +159,8 @@ ret_code_t dofInit(DOFSensor* dof) {
   ret += bno055_set_intr_mask_gyro_highrate(BNO055_BIT_ENABLE);
   ret += bno055_set_intr_gyro_highrate(BNO055_BIT_ENABLE);
 
-  // bno055_get_intr_stat_accel_no_motion
-  // default 4g
+  //   bno055_get_intr_stat_accel_no_motion
+  //   default 4g
   ret += bno055_set_accel_any_motion_no_motion_axis_enable(BNO055_ACCEL_ANY_MOTION_NO_MOTION_X_AXIS,
                                                            BNO055_BIT_ENABLE);
   ret += bno055_set_accel_any_motion_no_motion_axis_enable(BNO055_ACCEL_ANY_MOTION_NO_MOTION_Y_AXIS,
@@ -155,8 +172,19 @@ ret_code_t dofInit(DOFSensor* dof) {
   ret += bno055_set_intr_mask_accel_no_motion(BNO055_BIT_ENABLE);
   ret += bno055_set_intr_accel_no_motion(BNO055_BIT_ENABLE);
   ret += bno055_set_accel_slow_no_motion_enable(0);
-
   //   bno055_write_mag_offset
+
+  ret_code_t errCode = nrf_drv_gpiote_init();
+  APP_ERROR_CHECK(errCode);
+
+  nrf_drv_gpiote_in_config_t dofPinCfg = GPIOTE_CONFIG_IN_SENSE_TOGGLE(true);
+  dofPinCfg.pull                       = NRF_GPIO_PIN_PULLDOWN;
+  dofPinCfg.sense                      = NRF_GPIOTE_POLARITY_LOTOHI;
+
+  errCode = nrf_drv_gpiote_in_init(DOF_INT_PIN, &dofPinCfg, dofIntHandler);
+  APP_ERROR_CHECK(errCode);
+
+  nrf_drv_gpiote_in_event_enable(DOF_INT_PIN, true);
 
   return (ret ? NRF_ERROR_INTERNAL : NRF_SUCCESS);
 }
@@ -223,6 +251,7 @@ int main(void) {
 
   NRF_LOG_INFO("\r\nTWI sensor example started.");
   NRF_LOG_FLUSH();
+
   twiInit();
   dofInit(&dofSensor);
 

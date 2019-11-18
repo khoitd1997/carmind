@@ -4288,6 +4288,9 @@ u8 *selftest_mcu_u8);
  */
 BNO055_RETURN_FUNCTION_TYPE bno055_get_intr_stat_gyro_any_motion(
 u8 *gyro_any_motion_u8);
+
+BNO055_RETURN_FUNCTION_TYPE bno055_get_intr_stat(u8 *intr_stat);
+
 /*!
  *	@brief This API used to read the stat_s8 of
  *	gyro highrate interrupt from register from 0x37 bit 3

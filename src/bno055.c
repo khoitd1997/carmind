@@ -5455,6 +5455,35 @@ BNO055_RETURN_FUNCTION_TYPE bno055_get_intr_stat_gyro_any_motion(u8 *gyro_any_mo
   }
   return com_rslt;
 }
+
+BNO055_RETURN_FUNCTION_TYPE bno055_get_intr_stat(u8 *intr_stat) {
+  /* Variable used to return value of
+  communication routine*/
+  BNO055_RETURN_FUNCTION_TYPE com_rslt = BNO055_ERROR;
+  u8                          data_u8r = BNO055_INIT_VALUE;
+  s8                          stat_s8  = BNO055_ERROR;
+  /* Check the struct p_bno055 is empty */
+  if (p_bno055 == BNO055_INIT_VALUE) {
+    return BNO055_E_NULL_PTR;
+  } else {
+    /*condition check for page, gyro anymotion interrupt
+    status is available in the page zero*/
+    if (p_bno055->page_id != BNO055_PAGE_ZERO) /* Write the page zero*/
+      stat_s8 = bno055_write_page_id(BNO055_PAGE_ZERO);
+    if ((stat_s8 == BNO055_SUCCESS) || (p_bno055->page_id == BNO055_PAGE_ZERO)) {
+      /* Read the gyro anymotion interrupt stat_s8*/
+      com_rslt   = p_bno055->BNO055_BUS_READ_FUNC(p_bno055->dev_addr,
+                                                BNO055_INTR_STAT_GYRO_ANY_MOTION_REG,
+                                                &data_u8r,
+                                                BNO055_GEN_READ_WRITE_LENGTH);
+      *intr_stat = data_u8r;
+    } else {
+      com_rslt = BNO055_ERROR;
+    }
+  }
+  return com_rslt;
+}
+
 /*!
  *	@brief This API used to read the stat_s8 of
  *	gyro highrate interrupt from register from 0x37 bit 3
