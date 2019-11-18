@@ -10,6 +10,8 @@ Car parking spot reminder
 [Data Structure Docs](https://infocenter.nordicsemi.com/index.jsp?topic=%2Fsdk_nrf5_v16.0.0%2Fusergroup0.html&cp=6_1_7)
 [Scheduler Example](https://infocenter.nordicsemi.com/index.jsp?topic=%2Fsdk_nrf5_v16.0.0%2Flib_scheduler.html)
 
+NOTE: Good examples to look at: Proximity Application, Immediate Alert Service, Beacon Transmitter Sample Application, Eddystone Beacon
+
 The program is callback heavy and uses a pub/sub model to know who to call when events happen entities like BLE services and BLE events may allow users to register callbacks. It's also pretty macro-heavy and the main file is usually pretty big
 
 The SoftDevice has its own stack and changing its config parameter may change the size so make sure to check if the current size is correct
@@ -48,6 +50,12 @@ There should be 2 geofences, one for when we got to the parking lot and one wher
 ## Sensor Notes
 
 BNO055 constantly calibrates itself, at power-on, the calibration is 0, and it is advised to not trust values until the calibration value changes
+
+### Electrical Connection Notes
+
+TODO: Use EasyDMA if possible
+
+Uses TWI0 module
 
 ### Operation Mode
 
@@ -108,3 +116,41 @@ The BNO055 has built-in sensor fusion already that takes in raw acceleration, gy
 [FreeScale IMU Data Processing Guide](https://cache.freescale.com/files/sensors/doc/app_note/AN3461.pdf)
 
 [Sample AHRS Implementation](https://x-io.co.uk/open-source-imu-and-ahrs-algorithms/)
+
+## Sensor Obsevation Notes
+
+When car is on but not moving, orientation remains stable other parameter noise behaviour seems a littl higher
+
+Linear acceleration very susceptible to vibration of surface, reading will jump when users do things like moving around the car, or simply tapping on the seats
+
+### Linear Acceleration Graph
+
+![](image/2019-11-17-15-02-02.png)
+
+![](image/2019-11-17-15-03-03.png)
+
+Straight Acceleration with braking:
+
+![](image/2019-11-17-15-03-36.png)
+
+U-turn
+
+![](image/2019-11-17-15-04-36.png)
+
+Turn 
+
+![](image/2019-11-17-15-05-34.png)
+
+Turn perpendicular to original axis
+
+![](image/2019-11-17-15-15-13.png)
+
+### Gyro Graph
+
+90 degree turn
+
+![](image/2019-11-17-15-56-14.png)
+
+Straight run
+
+![](image/2019-11-17-15-59-03.png)
