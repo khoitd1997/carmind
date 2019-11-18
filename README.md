@@ -154,3 +154,7 @@ Turn perpendicular to original axis
 Straight run
 
 ![](image/2019-11-17-15-59-03.png)
+
+## Credits
+
+[Bosch BNO055 driver](https://github.com/BoschSensortec/BNO055_driver)

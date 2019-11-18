@@ -5,7 +5,8 @@ project(carmind C CXX ASM)
 
 set(common_flags "-D__HEAP_SIZE=8192 -D__STACK_SIZE=8192")
 set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} ${common_flags}")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${common_flags} -Og -Wall")
+set(CMAKE_C_FLAGS
+    "${CMAKE_C_FLAGS} -Wno-pointer-compare ${common_flags} -Og -Wall")
 set(CMAKE_CXX_FLAGS
     "${CMAKE_CXX_FLAGS} ${common_flags} -std=c++17 -fno-rtti -Wno-comment -Og -fno-exceptions"
 )
@@ -19,5 +20,5 @@ include_directories(src)
 
 # add_subdirectory(debug_utils)
 
-add_executable(${PROJECT_NAME}.elf ${NRF_SRCS} firmware_main.c)
+add_executable(${PROJECT_NAME}.elf ${NRF_SRCS} src/firmware_main.c src/bno055.c)
 # target_link_libraries(${PROJECT_NAME}.elf PUBLIC signal_analyzer_common swo)
