@@ -237,7 +237,9 @@ public class MoveSolver {
             testMoves.add(new UserMove(MoveType.RIGHT, new Point3Dim(2, 2, 0)));
             testMoves.add(new UserMove(MoveType.LEFT, new Point3Dim(10, 5, 2)));
             testMoves.add(new UserMove(MoveType.LEFT, new Point3Dim(14, 9, 2)));
-            testMoves.add(new UserMove(MoveType.LEFT, new Point3Dim(30, 40, 20)));
+            testMoves.add(new UserMove(MoveType.U_TURN_LEFT, new Point3Dim(30, 40, 20)));
+            testMoves.add(new UserMove(MoveType.RIGHT, new Point3Dim(30, 20, 20)));
+            testMoves.add(new UserMove(MoveType.RIGHT, new Point3Dim(30, 24, 20)));
 
             location.preprocessMove(testMoves);
             for (UserMove testMove : testMoves) {
