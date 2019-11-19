@@ -2,8 +2,8 @@ PROJECT_NAME     := pin_change_int_pca10040
 TARGETS          := nrf52832_xxaa
 OUTPUT_DIRECTORY := _build
 
-SDK_ROOT := /home/kd/carmind/nrf_sdk/sdk
-PROJ_DIR := 
+SDK_ROOT := ../../../../../..
+PROJ_DIR := ../../..
 
 $(OUTPUT_DIRECTORY)/nrf52832_xxaa.out: \
   LINKER_SCRIPT  := pin_change_int_gcc_nrf52.ld
@@ -39,7 +39,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/libraries/strerror \
   $(SDK_ROOT)/components/toolchain/cmsis/include \
   $(SDK_ROOT)/components/libraries/util \
-\
+  ../config \
   $(SDK_ROOT)/components/libraries/balloc \
   $(SDK_ROOT)/components/libraries/ringbuf \
   $(SDK_ROOT)/modules/nrfx/hal \
@@ -134,7 +134,7 @@ TEMPLATE_PATH := $(SDK_ROOT)/components/toolchain/gcc
 
 include $(TEMPLATE_PATH)/Makefile.common
 
-
+$(foreach target, $(TARGETS), $(call define_target, $(target)))
 
 .PHONY: flash erase
 

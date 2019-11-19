@@ -4,16 +4,19 @@ output_cmake_toolchain_file := toolchain.cmake
 output_cmakelist_file 		:= CMakeLists.txt
 
 current_dir := ${CURDIR}
-base_makefile_dir := base_makefile
+make_build_dir := ${current_dir}/make_build
+base_makefile_dir := ${current_dir}/base_makefile
 
-$(shell find $(base_makefile_dir) -type f -exec sed -i "s|SDK_ROOT := .*|SDK_ROOT := $(current_dir)/sdk|g" {} \;)
-$(shell find $(base_makefile_dir) -type f -exec sed -i "s|PROJ_DIR := .*|PROJ_DIR := |g" {} \;)
-$(shell find $(base_makefile_dir) -type f -exec sed -i "s|.*foreach target.*||g" {} \;)
-$(shell find $(base_makefile_dir) -type f -exec sed -i "s|.*\.\./config ||g" {} \;)
+$(shell mkdir -p ${make_build_dir})
+$(shell cp ${base_makefile_dir}/*.mk ${make_build_dir})
+$(shell find $(make_build_dir) -type f -exec sed -i "s|SDK_ROOT := .*|SDK_ROOT := $(current_dir)/sdk|g" {} \;)
+$(shell find $(make_build_dir) -type f -exec sed -i "s|PROJ_DIR := .*|PROJ_DIR := |g" {} \;)
+$(shell find $(make_build_dir) -type f -exec sed -i "s|.*foreach target.*||g" {} \;)
+$(shell find $(make_build_dir) -type f -exec sed -i "s|.*\.\./config ||g" {} \;)
 
 default: generate_cube_mx_cmakelist generate_cmake_toolchain
 
-include $(base_makefile_dir)/*.mk
+include $(make_build_dir)/*.mk
 
 
 final_c_flag = $(CFLAGS)
