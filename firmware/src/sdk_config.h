@@ -273,7 +273,7 @@
 // <q> BLE_ANS_C_ENABLED  - ble_ans_c - Alert Notification Service Client
 
 #ifndef BLE_ANS_C_ENABLED
-#define BLE_ANS_C_ENABLED 0
+#define BLE_ANS_C_ENABLED 1
 #endif
 
 // <q> BLE_BAS_C_ENABLED  - ble_bas_c - Battery Service Client
@@ -397,13 +397,13 @@
 // <q> BLE_IAS_C_ENABLED  - ble_ias_c - Immediate Alert Service Client
 
 #ifndef BLE_IAS_C_ENABLED
-#define BLE_IAS_C_ENABLED 0
+#define BLE_IAS_C_ENABLED 1
 #endif
 
 // <e> BLE_IAS_ENABLED - ble_ias - Immediate Alert Service
 //==========================================================
 #ifndef BLE_IAS_ENABLED
-#define BLE_IAS_ENABLED 0
+#define BLE_IAS_ENABLED 1
 #endif
 // <e> BLE_IAS_CONFIG_LOG_ENABLED - Enables logging in the module.
 //==========================================================
@@ -467,13 +467,13 @@
 // <q> BLE_LBS_ENABLED  - ble_lbs - LED Button Service
 
 #ifndef BLE_LBS_ENABLED
-#define BLE_LBS_ENABLED 0
+#define BLE_LBS_ENABLED 1
 #endif
 
 // <q> BLE_LLS_ENABLED  - ble_lls - Link Loss Service
 
 #ifndef BLE_LLS_ENABLED
-#define BLE_LLS_ENABLED 0
+#define BLE_LLS_ENABLED 1
 #endif
 
 // <q> BLE_NUS_C_ENABLED  - ble_nus_c - Nordic UART Central Service
