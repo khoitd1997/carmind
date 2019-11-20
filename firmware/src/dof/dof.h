@@ -25,6 +25,7 @@ typedef struct {
 } DOFData;
 
 typedef struct {
+  struct bno055_t      bno055;
   uint8_t              devAddr;
   nrf_drv_gpiote_pin_t intPin;
 } DOFSensor;

@@ -29,17 +29,16 @@ ret_code_t dofInit(DOFSensor*                 dof,
   dof->intPin  = intPin;
   twiModule    = twi;
 
-  struct bno055_t bno055 = {0};
-  bno055.bus_write       = bno055I2CBusWrite;
-  bno055.bus_read        = bno055I2CBusRead;
-  bno055.delay_msec      = bno055DelayMs;
-  bno055.dev_addr        = dof->devAddr;
+  dof->bno055.bus_write  = bno055I2CBusWrite;
+  dof->bno055.bus_read   = bno055I2CBusRead;
+  dof->bno055.delay_msec = bno055DelayMs;
+  dof->bno055.dev_addr   = dof->devAddr;
 
-  s32 ret = bno055_init(&bno055);
+  s32 ret = bno055_init(&(dof->bno055));
   ret += bno055_set_power_mode(BNO055_POWER_MODE_NORMAL);
   ret += bno055_set_sys_rst(BNO055_BIT_ENABLE);
 
-  ret += bno055_init(&bno055);
+  ret += bno055_init(&(dof->bno055));
   ret += bno055_set_power_mode(BNO055_POWER_MODE_NORMAL);
   ret += bno055_set_operation_mode(BNO055_OPERATION_MODE_NDOF);
 
@@ -90,19 +89,19 @@ ret_code_t dofDeinit(DOFSensor* dof) {
 ret_code_t dofRead(DOFSensor* dof, DOFData* data) {
   s32 ret = bno055_set_operation_mode(BNO055_OPERATION_MODE_NDOF);
 
-  struct bno055_gyro_double_t gyroData;
+  struct bno055_gyro_double_t gyroData = {0};
   ret += bno055_convert_double_gyro_xyz_dps(&gyroData);
   data->angularX = gyroData.x;
   data->angularY = gyroData.y;
   data->angularZ = gyroData.z;
 
-  struct bno055_euler_double_t eulerData;
+  struct bno055_euler_double_t eulerData = {0};
   ret += bno055_convert_double_euler_hpr_deg(&eulerData);
   data->eulerYaw   = eulerData.h;
   data->eulerRoll  = eulerData.r;
   data->eulerPitch = eulerData.p;
 
-  struct bno055_linear_accel_double_t linearData;
+  struct bno055_linear_accel_double_t linearData = {0};
   ret += bno055_convert_double_linear_accel_xyz_msq(&linearData);
   data->linearX = linearData.x;
   data->linearY = linearData.y;
