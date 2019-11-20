@@ -47,80 +47,23 @@
  *
  */
 
-#include <assert.h>
-#include <stdio.h>
-
 #include "app_error.h"
 #include "app_util_platform.h"
 #include "boards.h"
-#include "nrf_delay.h"
-#include "nrf_drv_gpiote.h"
-#include "nrf_drv_twi.h"
 
+#include "nrf_delay.h"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
-#include "bno055.h"
+#include "twi_utils.h"
 
-#define BNO055_TWI_BUF_LEN 100
+#include "dof.h"
+
 #define DOF_INT_PIN 20
-typedef struct {
-  // orientation in degree
-  double eulerRoll;
-  double eulerPitch;
-  double eulerYaw;
-
-  // linear acceleration m/s^2
-  double linearX;
-  double linearY;
-  double linearZ;
-
-  // gyro dps
-  double angularX;
-  double angularY;
-  double angularZ;
-} DOFData;
-typedef struct {
-  struct bno055_t bno055;
-  uint8_t         devAddr;
-} DOFSensor;
 static DOFSensor dofSensor;
 
-static const nrf_drv_twi_t twiModule   = NRF_DRV_TWI_INSTANCE(0);
-static volatile bool       twiXferDone = false;
-
-ret_code_t twiTx(
-    nrf_drv_twi_t const* twi, uint8_t devAddr, uint8_t const* data, uint8_t length, bool no_stop) {
-  twiXferDone        = false;
-  ret_code_t errCode = nrf_drv_twi_tx(twi, devAddr, data, length, no_stop);
-  APP_ERROR_CHECK(errCode);
-  while (twiXferDone == false) {}
-
-  return errCode;
-}
-ret_code_t twiRx(nrf_drv_twi_t const* twi, uint8_t devAddr, uint8_t* data, uint8_t length) {
-  twiXferDone        = false;
-  ret_code_t errCode = nrf_drv_twi_rx(twi, devAddr, data, length);
-  APP_ERROR_CHECK(errCode);
-  while (twiXferDone == false) {}
-
-  return errCode;
-}
-
-s8 bno055I2CBusWrite(u8 devAddr, u8 regAddr, u8* regData, u8 cnt) {
-  assert(cnt + 1 <= BNO055_TWI_BUF_LEN);
-
-  u8 array[BNO055_TWI_BUF_LEN] = {regAddr};
-  for (int i = 0; i < cnt; i++) { array[i + 1] = *(regData + i); }
-
-  return (twiTx(&twiModule, devAddr, array, cnt + 1, false) == NRF_SUCCESS ? 0 : -1);
-}
-s8 bno055I2CBusRead(u8 devAddr, u8 regAddr, u8* regData, u8 cnt) {
-  if (twiTx(&twiModule, devAddr, &regAddr, sizeof(regAddr), true) != NRF_SUCCESS) { return -1; }
-  return (twiRx(&twiModule, devAddr, regData, cnt) == NRF_SUCCESS ? 0 : -1);
-}
-void bno055DelayMs(u32 ms) { nrf_delay_ms((unsigned int)ms); }
+static const nrf_drv_twi_t twiModule = NRF_DRV_TWI_INSTANCE(0);
 
 void dofIntHandler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
   if (DOF_INT_PIN == pin && NRF_GPIOTE_POLARITY_LOTOHI == action) {
@@ -133,116 +76,18 @@ void dofIntHandler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
   }
 }
 
-ret_code_t dofInit(DOFSensor* dof) {
-  dof->devAddr = BNO055_I2C_ADDR1;
-
-  dof->bno055.bus_write  = bno055I2CBusWrite;
-  dof->bno055.bus_read   = bno055I2CBusRead;
-  dof->bno055.delay_msec = bno055DelayMs;
-  dof->bno055.dev_addr   = dof->devAddr;
-
-  s32 ret = bno055_init(&(dof->bno055));
-  ret += bno055_set_power_mode(BNO055_POWER_MODE_NORMAL);
-  ret += bno055_set_sys_rst(BNO055_BIT_ENABLE);
-
-  ret += bno055_init(&(dof->bno055));
-  ret += bno055_set_power_mode(BNO055_POWER_MODE_NORMAL);
-  ret += bno055_set_operation_mode(BNO055_OPERATION_MODE_NDOF);
-
-  // bno055_get_intr_mask_gyro_highrate
-  // default 2000dps so 62.5 dps per bit
-  ret += bno055_set_gyro_highrate_axis_enable(BNO055_GYRO_HIGHRATE_Z_AXIS, BNO055_BIT_ENABLE);
-  ret += bno055_set_gyro_highrate_filter(BNO055_GYRO_FILTERED_CONFIG);
-  ret += bno055_set_gyro_highrate_z_thres(2);
-  ret += bno055_set_gyro_highrate_z_hyst(0);
-  ret += bno055_set_gyro_highrate_z_durn(30);  // 2.5 ms per LSB
-  ret += bno055_set_intr_mask_gyro_highrate(BNO055_BIT_ENABLE);
-  ret += bno055_set_intr_gyro_highrate(BNO055_BIT_ENABLE);
-
-  //   bno055_get_intr_stat_accel_no_motion
-  //   default 4g
-  ret += bno055_set_accel_any_motion_no_motion_axis_enable(BNO055_ACCEL_ANY_MOTION_NO_MOTION_X_AXIS,
-                                                           BNO055_BIT_ENABLE);
-  ret += bno055_set_accel_any_motion_no_motion_axis_enable(BNO055_ACCEL_ANY_MOTION_NO_MOTION_Y_AXIS,
-                                                           BNO055_BIT_ENABLE);
-  ret += bno055_set_accel_any_motion_no_motion_axis_enable(BNO055_ACCEL_ANY_MOTION_NO_MOTION_Z_AXIS,
-                                                           BNO055_BIT_ENABLE);
-  ret += bno055_set_accel_slow_no_motion_thres(2);
-  ret += bno055_set_accel_slow_no_motion_durn(3);
-  ret += bno055_set_intr_mask_accel_no_motion(BNO055_BIT_ENABLE);
-  ret += bno055_set_intr_accel_no_motion(BNO055_BIT_ENABLE);
-  ret += bno055_set_accel_slow_no_motion_enable(0);
-  //   bno055_write_mag_offset
-
-  ret_code_t errCode = nrf_drv_gpiote_init();
-  APP_ERROR_CHECK(errCode);
-
-  nrf_drv_gpiote_in_config_t dofPinCfg = GPIOTE_CONFIG_IN_SENSE_TOGGLE(true);
-  dofPinCfg.pull                       = NRF_GPIO_PIN_PULLDOWN;
-  dofPinCfg.sense                      = NRF_GPIOTE_POLARITY_LOTOHI;
-
-  errCode = nrf_drv_gpiote_in_init(DOF_INT_PIN, &dofPinCfg, dofIntHandler);
-  APP_ERROR_CHECK(errCode);
-
-  nrf_drv_gpiote_in_event_enable(DOF_INT_PIN, true);
-
-  return (ret ? NRF_ERROR_INTERNAL : NRF_SUCCESS);
-}
-
-ret_code_t dofDeinit(DOFSensor* dof) {
-  return bno055_set_power_mode(BNO055_POWER_MODE_SUSPEND) ? NRF_ERROR_INTERNAL : NRF_SUCCESS;
-}
-
-ret_code_t dofRead(DOFSensor* dof, DOFData* data) {
-  s32 ret = bno055_set_operation_mode(BNO055_OPERATION_MODE_NDOF);
-
-  struct bno055_gyro_double_t gyroData;
-  ret += bno055_convert_double_gyro_xyz_dps(&gyroData);
-  data->angularX = gyroData.x;
-  data->angularY = gyroData.y;
-  data->angularZ = gyroData.z;
-
-  struct bno055_euler_double_t eulerData;
-  ret += bno055_convert_double_euler_hpr_deg(&eulerData);
-  data->eulerYaw   = eulerData.h;
-  data->eulerRoll  = eulerData.r;
-  data->eulerPitch = eulerData.p;
-
-  struct bno055_linear_accel_double_t linearData;
-  ret += bno055_convert_double_linear_accel_xyz_msq(&linearData);
-  data->linearX = linearData.x;
-  data->linearY = linearData.y;
-  data->linearZ = linearData.z;
-
-  return (ret ? NRF_ERROR_INTERNAL : NRF_SUCCESS);
-}
-
 __STATIC_INLINE void data_handler(uint8_t temp) {
   NRF_LOG_INFO("Temperature: %d Celsius degrees.", temp);
 }
-
-void twi_handler(nrf_drv_twi_evt_t const* p_event, void* p_context) {
+void twiHandler(nrf_drv_twi_evt_t const* p_event, void* p_context) {
   switch (p_event->type) {
     case NRF_DRV_TWI_EVT_DONE:
       //   if (p_event->xfer_desc.type == NRF_DRV_TWI_XFER_RX) { data_handler(m_sample); }
-      twiXferDone = true;
+      //   twiXferDone = true;
       break;
     default:
       break;
   }
-}
-
-void twiInit(void) {
-  const nrf_drv_twi_config_t twiConfig = {.scl                = ARDUINO_SCL_PIN,
-                                          .sda                = ARDUINO_SDA_PIN,
-                                          .frequency          = NRF_DRV_TWI_FREQ_100K,
-                                          .interrupt_priority = APP_IRQ_PRIORITY_HIGH,
-                                          .clear_bus_init     = false};
-
-  ret_code_t errCode = nrf_drv_twi_init(&twiModule, &twiConfig, twi_handler, NULL);
-  APP_ERROR_CHECK(errCode);
-
-  nrf_drv_twi_enable(&twiModule);
 }
 
 int main(void) {
@@ -252,8 +97,15 @@ int main(void) {
   NRF_LOG_INFO("\r\nTWI sensor example started.");
   NRF_LOG_FLUSH();
 
-  twiInit();
-  dofInit(&dofSensor);
+  {
+    const nrf_drv_twi_config_t twiConfig = {.scl                = ARDUINO_SCL_PIN,
+                                            .sda                = ARDUINO_SDA_PIN,
+                                            .frequency          = NRF_DRV_TWI_FREQ_100K,
+                                            .interrupt_priority = APP_IRQ_PRIORITY_HIGH,
+                                            .clear_bus_init     = false};
+    twiInit(&twiModule, &twiConfig, twiHandler);
+  }
+  dofInit(&dofSensor, &twiModule, DOF_INT_PIN, dofIntHandler);
 
   DOFData dofData = {0};
   while (true) {

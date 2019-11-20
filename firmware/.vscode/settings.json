@@ -14,6 +14,7 @@
         "conanfile.txt": "toml",
         "nrf_log_default_backends.h": "c",
         "nrf_delay.h": "c",
-        "nrf_drv_twi.h": "c"
+        "nrf_drv_twi.h": "c",
+        "app_util_platform.h": "c"
     }
 }

@@ -18,7 +18,7 @@ add_subdirectory(nrf_sdk)
 include_directories(SYSTEM ${NRF_INCS})
 include_directories(src)
 
-# add_subdirectory(debug_utils)
+add_subdirectory(src)
 
-add_executable(${PROJECT_NAME}.elf ${NRF_SRCS} src/firmware_main.c src/bno055.c)
-# target_link_libraries(${PROJECT_NAME}.elf PUBLIC signal_analyzer_common swo)
+add_executable(${PROJECT_NAME}.elf ${NRF_SRCS} src/firmware_main.c)
+target_link_libraries(${PROJECT_NAME}.elf PUBLIC utils dof)
