@@ -32,8 +32,7 @@ Use Navigation Drawer Activity, 3 tabs:
 
 ### BLE on Android Notes
 
-[Nordic Android BLE Connection Library](https://github.com/NordicSemiconductor/Android-BLE-Library)
-[Nordic Android BLE Scanner Library](https://github.com/NordicSemiconductor/Android-Scanner-Compat-Library)
+[Reactive Android BLE library](https://github.com/Polidea/RxAndroidBle)
 [MTU for Android](https://devzone.nordicsemi.com/f/nordic-q-a/40557/requesting-mtu-higher-than-127-on-some-android-devices-fails)
 
 - ecosystem very diverse, phones vary vastly in how they behave
