@@ -92,8 +92,7 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
-#define DEVICE_NAME "Nordic_Prox" /**< Name of device. Will be included in the advertising data. \
-                                   */
+#define DEVICE_NAME "Carmind"
 
 #define APP_BLE_OBSERVER_PRIO \
   3 /**< Application's BLE observer priority. You shouldn't need to modify this value. */
@@ -770,6 +769,8 @@ static void ble_evt_handler(ble_evt_t const *p_ble_evt, void *p_context) {
     } break;
 
     case BLE_GAP_EVT_PHY_UPDATE_REQUEST: {
+      // NOTE: Select 2Mbps here if needed
+      // right now select based on peer's preferred
       NRF_LOG_DEBUG("PHY update request.");
       ble_gap_phys_t const phys = {
           .rx_phys = BLE_GAP_PHY_AUTO,

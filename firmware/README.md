@@ -30,12 +30,26 @@ Use Navigation Drawer Activity, 3 tabs:
 - Archive: Search for past parking position using filter like dates, parking location
 - Edit: Allow for config like adding more maps
 
-### BLE
+### BLE on Android Notes
 
 [Nordic Android BLE Connection Library](https://github.com/NordicSemiconductor/Android-BLE-Library)
 [Nordic Android BLE Scanner Library](https://github.com/NordicSemiconductor/Android-Scanner-Compat-Library)
+[MTU for Android](https://devzone.nordicsemi.com/f/nordic-q-a/40557/requesting-mtu-higher-than-127-on-some-android-devices-fails)
 
-## Power Calculations
+- ecosystem very diverse, phones vary vastly in how they behave
+- 6 packets per connection event
+- 7.5 mS min connection interval
+- 127 byte MTU for most popular phone
+
+Due to diverse ecosystem, use Apple as a reference since Apple specs isn't really extreme(and probably less features than the best Android)
+
+![](image/2019-11-20-16-07-23.png)
+
+## BLE
+
+[BLE Useful Lessons](https://blefirst.wordpress.com/2016/10/23/lesson-3-sleep-clock-accuracy/)
+
+### Power Calculations
 
 [BLE Advertising](https://www.argenox.com/library/bluetooth-low-energy/ble-advertising-primer/)
 
@@ -46,6 +60,24 @@ BLE calculation figure comes from Nordic power calculator, assuming external cry
 There should be 2 geofences, one for when we got to the parking lot and one where we are near the parking lot, the near one will trigger about 2 minutes before we get there and start scanning for nrf52 and do all connection and initialization there
 
 - 2.9uA for connectable advertising with interval 10s: Used for app to connect to nrf52
+
+### BLE Settings to balance power and throughput
+
+Assumption:
+
+- External Crystal
+- 0dbM radio power
+- 64 byte TX per event, although increasing this number doesn't increase power usage by a great deal
+
+Settings:
+
+- 2Mbps PHY
+- Connection Interval: 2000 ms
+- Enable Data Packet Length Extention, the extension size doesn't seem to affect power usage. With this data can fit inside on packet
+- Slave latency of 7(max supported)
+
+2000 for connection interval with 200 byte max MTU seems like the sweet spot. For the same amount of data, longer connection interval with more data seems to consume a little less power. The nrf52 should maintain a queue and check it on connection event and try to empty it
+
 
 ## Sensor Notes
 
