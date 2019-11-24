@@ -1,6 +1,5 @@
 package com.example.carmind.ui.home
 
-import android.content.Context.MODE_PRIVATE
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -13,9 +12,7 @@ import com.polidea.rxandroidble2.RxBleConnection
 import com.polidea.rxandroidble2.RxBleDevice
 import com.polidea.rxandroidble2.exceptions.BleScanException
 import com.polidea.rxandroidble2.scan.ScanFilter
-import com.polidea.rxandroidble2.scan.ScanResult
 import com.polidea.rxandroidble2.scan.ScanSettings
-import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.Disposable
 import io.reactivex.subjects.PublishSubject
@@ -33,10 +30,7 @@ class HomeFragment : Fragment() {
     private var stateDisposable: Disposable? = null
     private val disconnectTriggerSubject = PublishSubject.create<Unit>()
 
-    private val sharedPrefName = "pref"
-
     private var savedMacAddresses = mutableSetOf<String>()
-    private val savedMacAddressPrefKey = "saved_mac_address"
 
     private val resultsAdapter =
         ScanResultsAdapter { scanResult ->
@@ -45,22 +39,23 @@ class HomeFragment : Fragment() {
             connectBleDevice(scanResult.bleDevice.macAddress)
         }
 
-    private var hasClickedScan = false
-
     private val isScanning: Boolean
         get() = scanDisposable != null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        savedMacAddresses.addAll(
-            context?.getSharedPreferences(sharedPrefName, MODE_PRIVATE)?.getStringSet(
-                savedMacAddressPrefKey,
-                null
-            )
-                ?: emptySet()
-        )
-        Log.v("event", "saved pref: $savedMacAddresses")
+        when (context?.isLocationPermissionGranted()) {
+            true -> scanBleDevices()
+            false -> activity?.requestLocationPermission()
+        }
+        Log.v("event", "bonded device: ${rxBleClient.bondedDevices}")
+    }
+
+    private fun getBondedDevices(): List<String> {
+        return rxBleClient.bondedDevices.filter {
+            it?.name?.contains("Carmind") ?: false
+        }.map { it.name!! }
     }
 
     override fun onCreateView(
@@ -77,7 +72,6 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         configureResultList()
 
-        scan_toggle_btn.setOnClickListener { onScanToggleClick() }
         disconnect_button.setOnClickListener {
             if (::bleDevice.isInitialized && bleDevice.isConnected) {
                 triggerDisconnect()
@@ -88,9 +82,6 @@ class HomeFragment : Fragment() {
 
     private fun connectBleDevice(macAddr: String) {
         bleDevice = rxBleClient.getBleDevice(macAddr)
-
-        savedMacAddresses.add(bleDevice.macAddress)
-
         bleDevice.observeConnectionStateChanges()
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe { onConnectionStateChange(it) }
@@ -114,43 +105,6 @@ class HomeFragment : Fragment() {
             itemAnimator = null
             adapter = resultsAdapter
         }
-    }
-
-    private fun onScanToggleClick() {
-        Log.v("event", "scan toggle click")
-        if (isScanning) {
-            scanDisposable?.dispose()
-        } else {
-            if (context?.isLocationPermissionGranted()!!) {
-                scanBleDevices()
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .doFinally {
-                        Log.v("event", "stopped scanning")
-                        dispose()
-                    }
-                    .subscribe(
-                        {
-                            resultsAdapter.addScanResult(it)
-                            if (((::bleDevice.isInitialized
-                                        && bleDevice.connectionState == RxBleConnection.RxBleConnectionState.DISCONNECTED)
-                                        || !::bleDevice.isInitialized)
-                                && savedMacAddresses.contains(it.bleDevice.macAddress)
-                            ) {
-                                Log.v("event", "connecting device")
-                                connectBleDevice(it.bleDevice.macAddress)
-                            }
-                        },
-                        { onScanFailure(it) }
-                    )
-                    .let { scanDisposable = it }
-                Log.v("event", "permission granted")
-            } else {
-                hasClickedScan = true
-                activity?.requestLocationPermission()
-                Log.v("event", "requesting permission")
-            }
-        }
-        updateButtonUIState()
     }
 
 //    private fun onConnectToggleClick() {
@@ -178,16 +132,18 @@ class HomeFragment : Fragment() {
 
     private fun triggerDisconnect() {
         if (::bleDevice.isInitialized && bleDevice.connectionState != RxBleConnection.RxBleConnectionState.DISCONNECTED) {
-            savedMacAddresses.remove(bleDevice.macAddress)
-            Log.v(
-                "event",
-                "remove mac addr ${bleDevice.macAddress} ${savedMacAddresses.contains(bleDevice.macAddress)} "
-            )
+            try {
+                bleDevice.bluetoothDevice::class.java.getMethod("removeBond")
+                    .invoke(bleDevice.bluetoothDevice)
+            } catch (e: Exception) {
+                Log.e("event", "Removing bond has been failed. ${e.message}")
+            }
         }
+        Log.v("event", "bonded devices cnt after unbond: ${getBondedDevices().size}")
         disconnectTriggerSubject.onNext(Unit)
     }
 
-    private fun scanBleDevices(): Observable<ScanResult> {
+    private fun scanBleDevices() {
         val scanSettings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
@@ -197,7 +153,27 @@ class HomeFragment : Fragment() {
             .setDeviceName("Carmind")
             .build()
 
-        return rxBleClient.scanBleDevices(scanSettings, scanFilter)
+        rxBleClient.scanBleDevices(scanSettings, scanFilter)
+            .observeOn(AndroidSchedulers.mainThread())
+            .doFinally {
+                Log.v("event", "stopped scanning")
+                dispose()
+            }
+            .subscribe(
+                {
+                    resultsAdapter.addScanResult(it)
+                    if (((::bleDevice.isInitialized
+                                && bleDevice.connectionState == RxBleConnection.RxBleConnectionState.DISCONNECTED)
+                                || !::bleDevice.isInitialized)
+                        && getBondedDevices().contains(it.bleDevice.macAddress)
+                    ) {
+                        Log.v("event", "connecting device")
+                        connectBleDevice(it.bleDevice.macAddress)
+                    }
+                },
+                { onScanFailure(it) }
+            )
+            .let { scanDisposable = it }
     }
 
     private fun dispose() {
@@ -243,8 +219,7 @@ class HomeFragment : Fragment() {
         permissions: Array<String>,
         grantResults: IntArray
     ) {
-        if (isLocationPermissionGranted(requestCode, grantResults) && hasClickedScan) {
-            hasClickedScan = false
+        if (isLocationPermissionGranted(requestCode, grantResults)) {
             scanBleDevices()
         }
     }
@@ -254,12 +229,6 @@ class HomeFragment : Fragment() {
         // Stop scanning in onPause callback.
         if (isScanning) scanDisposable?.dispose()
         triggerDisconnect()
-
-        context?.getSharedPreferences(sharedPrefName, MODE_PRIVATE)?.edit()?.run {
-            Log.v("destroy", "saving to pref")
-            putStringSet(savedMacAddressPrefKey, savedMacAddresses)
-            apply()
-        }
     }
 
     override fun onDestroy() {
