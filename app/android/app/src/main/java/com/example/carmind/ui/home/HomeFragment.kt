@@ -131,11 +131,12 @@ class HomeFragment : Fragment() {
                     .subscribe(
                         {
                             resultsAdapter.addScanResult(it)
-                            if ((::bleDevice.isInitialized
+                            if (((::bleDevice.isInitialized
                                         && bleDevice.connectionState == RxBleConnection.RxBleConnectionState.DISCONNECTED)
-                                || !::bleDevice.isInitialized
+                                        || !::bleDevice.isInitialized)
                                 && savedMacAddresses.contains(it.bleDevice.macAddress)
                             ) {
+                                Log.v("event", "connecting device")
                                 connectBleDevice(it.bleDevice.macAddress)
                             }
                         },
@@ -175,7 +176,16 @@ class HomeFragment : Fragment() {
         connection_state.text = newState.toString()
     }
 
-    private fun triggerDisconnect() = disconnectTriggerSubject.onNext(Unit)
+    private fun triggerDisconnect() {
+        if (::bleDevice.isInitialized && bleDevice.connectionState != RxBleConnection.RxBleConnectionState.DISCONNECTED) {
+            savedMacAddresses.remove(bleDevice.macAddress)
+            Log.v(
+                "event",
+                "remove mac addr ${bleDevice.macAddress} ${savedMacAddresses.contains(bleDevice.macAddress)} "
+            )
+        }
+        disconnectTriggerSubject.onNext(Unit)
+    }
 
     private fun scanBleDevices(): Observable<ScanResult> {
         val scanSettings = ScanSettings.Builder()
