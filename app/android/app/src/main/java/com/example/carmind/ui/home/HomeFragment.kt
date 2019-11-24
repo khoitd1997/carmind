@@ -1,5 +1,6 @@
 package com.example.carmind.ui.home
 
+import android.content.Context.MODE_PRIVATE
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -28,30 +29,20 @@ class HomeFragment : Fragment() {
     private var prevReceived = -1
 
     private var scanDisposable: Disposable? = null
+    private var connectDisposable: Disposable? = null
     private var stateDisposable: Disposable? = null
     private val disconnectTriggerSubject = PublishSubject.create<Unit>()
-    private var characteristicsDisposable: Disposable?= null
+
+    private val sharedPrefName = "pref"
+
+    private var savedMacAddresses = mutableSetOf<String>()
+    private val savedMacAddressPrefKey = "saved_mac_address"
 
     private val resultsAdapter =
         ScanResultsAdapter { scanResult ->
             //            startActivity(context?.let { it1 -> MainActivity.newInstance(it1, scanResult.bleDevice.macAddress) })
             Log.v("handler", "user clicked on ${scanResult.bleDevice.macAddress}")
-            bleDevice = rxBleClient.getBleDevice(scanResult.bleDevice.macAddress)
-
-            bleDevice.observeConnectionStateChanges()
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe { onConnectionStateChange(it) }
-                .let { stateDisposable = it }
-
-            bleDevice.establishConnection(true)
-                .takeUntil(disconnectTriggerSubject)
-                .compose(ReplayingShare.instance())
-                .doFinally { activity?.runOnUiThread { dispose() } }
-                .flatMap { it.setupNotification(UUID.fromString("00002A19-0000-1000-8000-00805F9B34FB")) }
-                .doOnNext{ activity?.runOnUiThread { notificationHasBeenSetUp() } }
-                .flatMap { it }
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({ onNotificationReceived(it) }, { onNotificationSetupFailure(it) })
+            connectBleDevice(scanResult.bleDevice.macAddress)
         }
 
     private var hasClickedScan = false
@@ -59,11 +50,26 @@ class HomeFragment : Fragment() {
     private val isScanning: Boolean
         get() = scanDisposable != null
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        savedMacAddresses.addAll(
+            context?.getSharedPreferences(sharedPrefName, MODE_PRIVATE)?.getStringSet(
+                savedMacAddressPrefKey,
+                null
+            )
+                ?: emptySet()
+        )
+        Log.v("event", "saved pref: $savedMacAddresses")
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        super.onCreateView(inflater, container, savedInstanceState)
+
         return inflater.inflate(R.layout.fragment_home, container, false)
     }
 
@@ -73,11 +79,33 @@ class HomeFragment : Fragment() {
 
         scan_toggle_btn.setOnClickListener { onScanToggleClick() }
         disconnect_button.setOnClickListener {
-            if(::bleDevice.isInitialized && bleDevice.isConnected){
+            if (::bleDevice.isInitialized && bleDevice.isConnected) {
                 triggerDisconnect()
             }
         }
         Log.v("event", "view created")
+    }
+
+    private fun connectBleDevice(macAddr: String) {
+        bleDevice = rxBleClient.getBleDevice(macAddr)
+
+        savedMacAddresses.add(bleDevice.macAddress)
+
+        bleDevice.observeConnectionStateChanges()
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe { onConnectionStateChange(it) }
+            .let { stateDisposable = it }
+
+        bleDevice.establishConnection(true)
+            .takeUntil(disconnectTriggerSubject)
+            .compose(ReplayingShare.instance())
+            .doFinally { activity?.runOnUiThread { dispose() } }
+            .flatMap { it.setupNotification(UUID.fromString("00002A19-0000-1000-8000-00805F9B34FB")) }
+            .doOnNext { activity?.runOnUiThread { notificationHasBeenSetUp() } }
+            .flatMap { it }
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({ onNotificationReceived(it) }, { onNotificationSetupFailure(it) })
+            .let { connectDisposable = it }
     }
 
     private fun configureResultList() {
@@ -96,8 +124,23 @@ class HomeFragment : Fragment() {
             if (context?.isLocationPermissionGranted()!!) {
                 scanBleDevices()
                     .observeOn(AndroidSchedulers.mainThread())
-                    .doFinally { dispose() }
-                    .subscribe({ resultsAdapter.addScanResult(it) }, { onScanFailure(it) })
+                    .doFinally {
+                        Log.v("event", "stopped scanning")
+                        dispose()
+                    }
+                    .subscribe(
+                        {
+                            resultsAdapter.addScanResult(it)
+                            if ((::bleDevice.isInitialized
+                                        && bleDevice.connectionState == RxBleConnection.RxBleConnectionState.DISCONNECTED)
+                                || !::bleDevice.isInitialized
+                                && savedMacAddresses.contains(it.bleDevice.macAddress)
+                            ) {
+                                connectBleDevice(it.bleDevice.macAddress)
+                            }
+                        },
+                        { onScanFailure(it) }
+                    )
                     .let { scanDisposable = it }
                 Log.v("event", "permission granted")
             } else {
@@ -121,7 +164,8 @@ class HomeFragment : Fragment() {
 //        }
 //    }
 
-    private fun onConnectionFailure(throwable: Throwable) = activity?.showSnackbarShort("Connection error: $throwable")
+    private fun onConnectionFailure(throwable: Throwable) =
+        activity?.showSnackbarShort("Connection error: $throwable")
 
     private fun onConnectionReceived() {
         activity?.showSnackbarShort("Connection received")
@@ -147,6 +191,8 @@ class HomeFragment : Fragment() {
     }
 
     private fun dispose() {
+//        Log.v("event", "disconnected")
+//        scanDisposable?.dispose()
         scanDisposable = null
         resultsAdapter.clearScanResults()
         updateButtonUIState()
@@ -159,10 +205,10 @@ class HomeFragment : Fragment() {
     private fun onNotificationReceived(bytes: ByteArray) {
         val receivedBatLevel = bytes[0].toInt()
         Log.v("event", "bytes are $receivedBatLevel")
-        if(prevReceived == -1) {
+        if (prevReceived == -1) {
             prevReceived = receivedBatLevel
         } else {
-            if((prevReceived == 100 && receivedBatLevel != 0) || (prevReceived != 100 && receivedBatLevel - 1 != prevReceived)){
+            if ((prevReceived == 100 && receivedBatLevel != 0) || (prevReceived != 100 && receivedBatLevel - 1 != prevReceived)) {
                 Log.v("event", "missed one: $prevReceived $receivedBatLevel")
             }
             prevReceived = receivedBatLevel
@@ -175,13 +221,18 @@ class HomeFragment : Fragment() {
         Log.v("event", "notification complete/error: $throwable")
     }
 
-    private fun notificationHasBeenSetUp() = activity?.showSnackbarShort("Notifications has been set up")
+    private fun notificationHasBeenSetUp() =
+        activity?.showSnackbarShort("Notifications has been set up")
 
 
     private fun updateButtonUIState() =
         scan_toggle_btn.setText(if (isScanning) R.string.button_stop_scan else R.string.button_start_scan)
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
         if (isLocationPermissionGranted(requestCode, grantResults) && hasClickedScan) {
             hasClickedScan = false
             scanBleDevices()
@@ -193,6 +244,12 @@ class HomeFragment : Fragment() {
         // Stop scanning in onPause callback.
         if (isScanning) scanDisposable?.dispose()
         triggerDisconnect()
+
+        context?.getSharedPreferences(sharedPrefName, MODE_PRIVATE)?.edit()?.run {
+            Log.v("destroy", "saving to pref")
+            putStringSet(savedMacAddressPrefKey, savedMacAddresses)
+            apply()
+        }
     }
 
     override fun onDestroy() {
