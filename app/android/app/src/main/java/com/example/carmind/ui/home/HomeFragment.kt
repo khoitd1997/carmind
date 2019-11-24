@@ -50,8 +50,8 @@ class HomeFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Log.v("event", "bonded device: ${getBondedDevices()}")
-//        registerGeofence()
+        Log.v("event", "bonded device: ${getBondedMacAddr()}")
+        registerGeofence()
     }
 
     private fun registerGeofence() {
@@ -60,8 +60,10 @@ class HomeFragment : Fragment() {
             geofencePendingIntent
         )?.run {
             addOnSuccessListener {
+                Log.v("event", "geofence succeeded")
             }
             addOnFailureListener {
+                Log.v("event", "geofence failed")
             }
         }
     }
@@ -99,7 +101,7 @@ class HomeFragment : Fragment() {
         }.build()
     }
 
-    private fun getBondedDevices(): List<String> {
+    private fun getBondedMacAddr(): List<String> {
         return rxBleClient.bondedDevices.filter {
             it?.name?.contains("Carmind") ?: false
         }.map { it.macAddress!! }
@@ -129,7 +131,7 @@ class HomeFragment : Fragment() {
         }
         disconnect_button.setOnClickListener {
             unbondDevice()
-                triggerDisconnect()
+            triggerDisconnect()
         }
         Log.v("event", "view created")
     }
@@ -174,7 +176,7 @@ class HomeFragment : Fragment() {
                 Log.e("event", "Removing bond has been failed. ${e.message}")
             }
         }
-        Log.v("event", "bonded devices cnt after unbond: ${getBondedDevices().size}")
+        Log.v("event", "bonded devices cnt after unbond: ${getBondedMacAddr().size}")
     }
 
     private fun triggerDisconnect() {
@@ -207,7 +209,7 @@ class HomeFragment : Fragment() {
                     if (((::bleDevice.isInitialized
                                 && bleDevice.connectionState == RxBleConnection.RxBleConnectionState.DISCONNECTED)
                                 || !::bleDevice.isInitialized)
-                        && getBondedDevices().contains(it.bleDevice.macAddress)
+                        && getBondedMacAddr().contains(it.bleDevice.macAddress)
                     ) {
                         Log.v("event", "connecting device")
                         connectBleDevice(it.bleDevice.macAddress)
