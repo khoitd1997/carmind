@@ -56,7 +56,7 @@ class HomeFragment : Fragment() {
             }
 
             addGeofences(
-                getGeofencingRequest(getGeofenceList()),
+                geofenceRequest,
                 geofencePendingIntent
             )?.run {
                 addOnSuccessListener {
@@ -74,7 +74,7 @@ class HomeFragment : Fragment() {
         PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
-    private fun getGeofenceList(): List<Geofence> {
+    private val geofenceRequest: GeofencingRequest by lazy {
         val geofenceList = ArrayList<Geofence>()
 
         geofenceList.add(
@@ -86,11 +86,7 @@ class HomeFragment : Fragment() {
                 .build()
         )
 
-        return geofenceList
-    }
-
-    private fun getGeofencingRequest(geofenceList: List<Geofence>): GeofencingRequest {
-        return GeofencingRequest.Builder().apply {
+        GeofencingRequest.Builder().apply {
             setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
             addGeofences(geofenceList)
         }.build()
@@ -109,23 +105,27 @@ class HomeFragment : Fragment() {
     ): View? {
         super.onCreateView(inflater, container, savedInstanceState)
 
-        return inflater.inflate(R.layout.fragment_home, container, false)
+        if (context?.isLocationPermissionGranted()!!) {
+            return inflater.inflate(R.layout.fragment_home, container, false)
+        }
+        return null
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         if (context?.isLocationPermissionGranted()!!) {
-            permissionGrantedStartup()
-        }
-        configureResultList()
-
-        scan_toggle_btn.setOnClickListener {
+            registerGeofence()
             scanBleDevices()
-        }
-        disconnect_button.setOnClickListener {
-            unbondDevice()
-            triggerDisconnect()
+            configureResultList()
+
+            scan_toggle_btn.setOnClickListener {
+                scanBleDevices()
+            }
+            disconnect_button.setOnClickListener {
+                unbondDevice()
+                triggerDisconnect()
+            }
         }
         Log.v("event", "view created")
     }
@@ -181,16 +181,20 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun scanBleDevices() {
-        val scanSettings = ScanSettings.Builder()
+    private val scanSettings: ScanSettings by lazy {
+        ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
             .build()
+    }
 
-        val scanFilter = ScanFilter.Builder()
+    private val scanFilter: ScanFilter by lazy {
+        ScanFilter.Builder()
 //            .setDeviceName("Carmind")
             .build()
+    }
 
+    private fun scanBleDevices() {
         rxBleClient.scanBleDevices(scanSettings, scanFilter)
             .observeOn(AndroidSchedulers.mainThread())
             .doFinally {
@@ -237,7 +241,6 @@ class HomeFragment : Fragment() {
             }
             prevReceived = receivedBatLevel
         }
-//        activity?.showSnackbarShort("Change: $bytes")
     }
 
     private fun onNotificationSetupFailure(throwable: Throwable) {
@@ -247,11 +250,6 @@ class HomeFragment : Fragment() {
 
     private fun notificationHasBeenSetUp() =
         activity?.showSnackbarShort("Notifications has been set up")
-
-    private fun permissionGrantedStartup() {
-        registerGeofence()
-        scanBleDevices()
-    }
 
     override fun onPause() {
         super.onPause()
