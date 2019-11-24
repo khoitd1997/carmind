@@ -1,9 +1,9 @@
 package com.example.carmind
 
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.Menu
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
@@ -13,6 +13,7 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
+import com.example.carmind.ui.home.HomeFragment
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.navigation.NavigationView
 import com.google.android.material.snackbar.Snackbar
@@ -52,6 +53,26 @@ class MainActivity : AppCompatActivity() {
         )
         setupActionBarWithNavController(navController, appBarConfiguration)
         navView.setupWithNavController(navController)
+
+        if (!isLocationPermissionGranted()) {
+            this.requestLocationPermission()
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        Log.v("event", "permission granted callback")
+        if (isLocationPermissionGranted(requestCode, grantResults)) {
+            val fragment = HomeFragment()
+            supportFragmentManager
+                .beginTransaction()
+                .replace(R.id.nav_host_fragment, fragment)
+                .commit()
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

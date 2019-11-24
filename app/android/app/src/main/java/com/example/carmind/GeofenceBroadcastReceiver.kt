@@ -10,9 +10,13 @@ import com.google.android.gms.location.GeofencingEvent
 
 class GeofenceBroadcastReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
+        Log.v("event", "geofence receive called")
         val geofencingEvent = GeofencingEvent.fromIntent(intent)
         if (geofencingEvent.hasError()) {
-            Log.e("event", GeofenceStatusCodes.getStatusCodeString(geofencingEvent.errorCode))
+            Log.e(
+                "event",
+                "geofence ${GeofenceStatusCodes.getStatusCodeString(geofencingEvent.errorCode)})"
+            )
         }
 
         val geofenceTransition = geofencingEvent.geofenceTransition

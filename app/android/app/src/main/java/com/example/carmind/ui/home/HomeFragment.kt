@@ -44,48 +44,43 @@ class HomeFragment : Fragment() {
             connectBleDevice(scanResult.bleDevice.macAddress)
         }
 
-    private val isScanning: Boolean
-        get() = scanDisposable != null
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        Log.v("event", "bonded device: ${getBondedMacAddr()}")
-        registerGeofence()
-    }
-
     private fun registerGeofence() {
-        LocationServices.getGeofencingClient(context!!)?.addGeofences(
-            getGeofencingRequest(getGeofenceList()),
-            geofencePendingIntent
-        )?.run {
-            addOnSuccessListener {
-                Log.v("event", "geofence succeeded")
+        with(LocationServices.getGeofencingClient(context!!)) {
+            removeGeofences(geofencePendingIntent)?.run {
+                addOnSuccessListener {
+                    Log.v("event", "geofence successfully removed")
+                }
+                addOnFailureListener {
+                    Log.v("event", "geofence failed to be removed")
+                }
             }
-            addOnFailureListener {
-                Log.v("event", "geofence failed")
+
+            addGeofences(
+                getGeofencingRequest(getGeofenceList()),
+                geofencePendingIntent
+            )?.run {
+                addOnSuccessListener {
+                    Log.v("event", "geofence succeeded")
+                }
+                addOnFailureListener {
+                    Log.v("event", "geofence failed")
+                }
             }
         }
     }
 
     private val geofencePendingIntent: PendingIntent by lazy {
         val intent = Intent(context, GeofenceBroadcastReceiver::class.java)
-        // We use FLAG_UPDATE_CURRENT so that we get the same pending intent back when calling
-        // addGeofences() and removeGeofences().
         PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
     private fun getGeofenceList(): List<Geofence> {
-        var geofenceList = ArrayList<Geofence>()
+        val geofenceList = ArrayList<Geofence>()
 
         geofenceList.add(
             Geofence.Builder()
                 .setRequestId("parking_structure_1")
-                .setCircularRegion(
-                    33.757830,
-                    -117.938900,
-                    1000f
-                )
+                .setCircularRegion(33.7578, -117.93, 1000f)
                 .setExpirationDuration(NEVER_EXPIRE)
                 .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT)
                 .build()
@@ -120,9 +115,8 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        when (context?.isLocationPermissionGranted()) {
-            true -> scanBleDevices()
-            false -> activity?.requestLocationPermission()
+        if (context?.isLocationPermissionGranted()!!) {
+            permissionGrantedStartup()
         }
         configureResultList()
 
@@ -194,7 +188,7 @@ class HomeFragment : Fragment() {
             .build()
 
         val scanFilter = ScanFilter.Builder()
-            .setDeviceName("Carmind")
+//            .setDeviceName("Carmind")
             .build()
 
         rxBleClient.scanBleDevices(scanSettings, scanFilter)
@@ -254,20 +248,15 @@ class HomeFragment : Fragment() {
     private fun notificationHasBeenSetUp() =
         activity?.showSnackbarShort("Notifications has been set up")
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        if (isLocationPermissionGranted(requestCode, grantResults)) {
-            scanBleDevices()
-        }
+    private fun permissionGrantedStartup() {
+        registerGeofence()
+        scanBleDevices()
     }
 
     override fun onPause() {
         super.onPause()
-        // Stop scanning in onPause callback.
-        if (isScanning) scanDisposable?.dispose()
+
+        scanDisposable?.dispose()
         triggerDisconnect()
     }
 
