@@ -98,7 +98,7 @@
   3 /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 #define APP_BLE_CONN_CFG_TAG 1 /**< A tag identifying the SoftDevice BLE configuration. */
 
-#define BATTERY_LEVEL_MEAS_INTERVAL APP_TIMER_TICKS(1000)
+#define BATTERY_LEVEL_MEAS_INTERVAL APP_TIMER_TICKS(2000)
 
 #define MIN_CONN_INTERVAL \
   MSEC_TO_UNITS(500, UNIT_1_25_MS) /**< Minimum acceptable connection interval (0.5 seconds).  */
@@ -228,6 +228,10 @@ static void pm_evt_handler(pm_evt_t const *p_evt) {
   pm_handler_flash_clean(p_evt);
 
   switch (p_evt->evt_id) {
+    case PM_EVT_CONN_SEC_CONFIG_REQ: {
+      pm_conn_sec_config_t conf = {.allow_repairing = true};
+      pm_conn_sec_config_reply(p_evt->conn_handle, &conf);
+    } break;
     case PM_EVT_PEERS_DELETE_SUCCEEDED:
       advertising_start(false);
       break;

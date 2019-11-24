@@ -1,5 +1,7 @@
 package com.example.carmind.ui.home
 
+import android.app.PendingIntent
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -7,6 +9,10 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.example.carmind.*
+import com.google.android.gms.location.Geofence
+import com.google.android.gms.location.Geofence.NEVER_EXPIRE
+import com.google.android.gms.location.GeofencingRequest
+import com.google.android.gms.location.LocationServices
 import com.jakewharton.rx.ReplayingShare
 import com.polidea.rxandroidble2.RxBleConnection
 import com.polidea.rxandroidble2.RxBleDevice
@@ -18,6 +24,7 @@ import io.reactivex.disposables.Disposable
 import io.reactivex.subjects.PublishSubject
 import kotlinx.android.synthetic.main.fragment_home.*
 import java.util.*
+import kotlin.collections.ArrayList
 
 class HomeFragment : Fragment() {
     private val rxBleClient = CarmindApplication.rxBleClient
@@ -43,17 +50,59 @@ class HomeFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        when (context?.isLocationPermissionGranted()) {
-            true -> scanBleDevices()
-            false -> activity?.requestLocationPermission()
+        Log.v("event", "bonded device: ${getBondedDevices()}")
+//        registerGeofence()
+    }
+
+    private fun registerGeofence() {
+        LocationServices.getGeofencingClient(context!!)?.addGeofences(
+            getGeofencingRequest(getGeofenceList()),
+            geofencePendingIntent
+        )?.run {
+            addOnSuccessListener {
+            }
+            addOnFailureListener {
+            }
         }
-        Log.v("event", "bonded device: ${rxBleClient.bondedDevices}")
+    }
+
+    private val geofencePendingIntent: PendingIntent by lazy {
+        val intent = Intent(context, GeofenceBroadcastReceiver::class.java)
+        // We use FLAG_UPDATE_CURRENT so that we get the same pending intent back when calling
+        // addGeofences() and removeGeofences().
+        PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
+    private fun getGeofenceList(): List<Geofence> {
+        var geofenceList = ArrayList<Geofence>()
+
+        geofenceList.add(
+            Geofence.Builder()
+                .setRequestId("parking_structure_1")
+                .setCircularRegion(
+                    33.757830,
+                    -117.938900,
+                    1000f
+                )
+                .setExpirationDuration(NEVER_EXPIRE)
+                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT)
+                .build()
+        )
+
+        return geofenceList
+    }
+
+    private fun getGeofencingRequest(geofenceList: List<Geofence>): GeofencingRequest {
+        return GeofencingRequest.Builder().apply {
+            setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+            addGeofences(geofenceList)
+        }.build()
     }
 
     private fun getBondedDevices(): List<String> {
         return rxBleClient.bondedDevices.filter {
             it?.name?.contains("Carmind") ?: false
-        }.map { it.name!! }
+        }.map { it.macAddress!! }
     }
 
     override fun onCreateView(
@@ -68,12 +117,19 @@ class HomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        when (context?.isLocationPermissionGranted()) {
+            true -> scanBleDevices()
+            false -> activity?.requestLocationPermission()
+        }
         configureResultList()
 
+        scan_toggle_btn.setOnClickListener {
+            scanBleDevices()
+        }
         disconnect_button.setOnClickListener {
-            if (::bleDevice.isInitialized && bleDevice.isConnected) {
+            unbondDevice()
                 triggerDisconnect()
-            }
         }
         Log.v("event", "view created")
     }
@@ -105,30 +161,11 @@ class HomeFragment : Fragment() {
         }
     }
 
-//    private fun onConnectToggleClick() {
-//        if (bleDevice.isConnected) {
-//            triggerDisconnect()
-//        } else {
-//            bleDevice.establishConnection(true)
-//                .observeOn(AndroidSchedulers.mainThread())
-//                .doFinally { dispose() }
-//                .subscribe({ onConnectionReceived() }, { onConnectionFailure(it) })
-//                .let { connectionDisposable = it }
-//        }
-//    }
-
-    private fun onConnectionFailure(throwable: Throwable) =
-        activity?.showSnackbarShort("Connection error: $throwable")
-
-    private fun onConnectionReceived() {
-        activity?.showSnackbarShort("Connection received")
-    }
-
     private fun onConnectionStateChange(newState: RxBleConnection.RxBleConnectionState) {
         connection_state.text = newState.toString()
     }
 
-    private fun triggerDisconnect() {
+    private fun unbondDevice() {
         if (::bleDevice.isInitialized && bleDevice.connectionState != RxBleConnection.RxBleConnectionState.DISCONNECTED) {
             try {
                 bleDevice.bluetoothDevice::class.java.getMethod("removeBond")
@@ -138,7 +175,14 @@ class HomeFragment : Fragment() {
             }
         }
         Log.v("event", "bonded devices cnt after unbond: ${getBondedDevices().size}")
-        disconnectTriggerSubject.onNext(Unit)
+    }
+
+    private fun triggerDisconnect() {
+        if (::bleDevice.isInitialized && bleDevice.connectionState != RxBleConnection.RxBleConnectionState.DISCONNECTED) {
+            disconnectTriggerSubject.onNext(Unit)
+            connectDisposable?.dispose()
+            connectDisposable = null
+        }
     }
 
     private fun scanBleDevices() {
@@ -176,10 +220,10 @@ class HomeFragment : Fragment() {
 
     private fun dispose() {
 //        Log.v("event", "disconnected")
-//        scanDisposable?.dispose()
+        scanDisposable?.dispose()
         scanDisposable = null
         resultsAdapter.clearScanResults()
-        updateButtonUIState()
+//        scanBleDevices()
     }
 
     private fun onScanFailure(throwable: Throwable) {
@@ -207,10 +251,6 @@ class HomeFragment : Fragment() {
 
     private fun notificationHasBeenSetUp() =
         activity?.showSnackbarShort("Notifications has been set up")
-
-
-    private fun updateButtonUIState() =
-        scan_toggle_btn.setText(if (isScanning) R.string.button_stop_scan else R.string.button_start_scan)
 
     override fun onRequestPermissionsResult(
         requestCode: Int,

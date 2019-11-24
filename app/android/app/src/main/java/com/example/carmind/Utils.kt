@@ -17,7 +17,7 @@ private const val LOCATION_PERMISSION_REQUEST_CODE = 101
 internal fun Context.isLocationPermissionGranted(): Boolean {
     val isGranted = ContextCompat.checkSelfPermission(
         this,
-        permission.ACCESS_COARSE_LOCATION
+        permission.ACCESS_FINE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
 
     Log.v("permission", "Is granted $isGranted")
