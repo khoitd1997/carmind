@@ -12,7 +12,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.polidea.rxandroidble2.RxBleConnection
 import com.polidea.rxandroidble2.RxBleDevice
 
-private const val REQUEST_PERMISSION_COARSE_LOCATION = 101
+private const val LOCATION_PERMISSION_REQUEST_CODE = 101
 
 internal fun Context.isLocationPermissionGranted(): Boolean {
     val isGranted = ContextCompat.checkSelfPermission(
@@ -27,12 +27,12 @@ internal fun Context.isLocationPermissionGranted(): Boolean {
 internal fun Activity.requestLocationPermission() =
     ActivityCompat.requestPermissions(
         this,
-        arrayOf(permission.ACCESS_COARSE_LOCATION),
-        REQUEST_PERMISSION_COARSE_LOCATION
+        arrayOf(permission.ACCESS_FINE_LOCATION),
+        LOCATION_PERMISSION_REQUEST_CODE
     )
 
 internal fun isLocationPermissionGranted(requestCode: Int, grantResults: IntArray) =
-    requestCode == REQUEST_PERMISSION_COARSE_LOCATION && grantResults[0] == PackageManager.PERMISSION_GRANTED
+    requestCode == LOCATION_PERMISSION_REQUEST_CODE && grantResults[0] == PackageManager.PERMISSION_GRANTED
 
 internal val RxBleDevice.isConnected: Boolean
     get() = connectionState == RxBleConnection.RxBleConnectionState.CONNECTED

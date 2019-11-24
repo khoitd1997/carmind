@@ -30,8 +30,6 @@ class HomeFragment : Fragment() {
     private var stateDisposable: Disposable? = null
     private val disconnectTriggerSubject = PublishSubject.create<Unit>()
 
-    private var savedMacAddresses = mutableSetOf<String>()
-
     private val resultsAdapter =
         ScanResultsAdapter { scanResult ->
             //            startActivity(context?.let { it1 -> MainActivity.newInstance(it1, scanResult.bleDevice.macAddress) })
