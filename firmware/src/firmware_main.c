@@ -98,9 +98,7 @@
   3 /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 #define APP_BLE_CONN_CFG_TAG 1 /**< A tag identifying the SoftDevice BLE configuration. */
 
-#define BATTERY_LEVEL_MEAS_INTERVAL                                                               \
-  APP_TIMER_TICKS(120000) /**< Battery level measurement interval (ticks). This value corresponds \
-                             to 120 seconds. */
+#define BATTERY_LEVEL_MEAS_INTERVAL APP_TIMER_TICKS(1000)
 
 #define MIN_CONN_INTERVAL \
   MSEC_TO_UNITS(500, UNIT_1_25_MS) /**< Minimum acceptable connection interval (0.5 seconds).  */
@@ -248,7 +246,7 @@ void saadc_event_handler(nrf_drv_saadc_evt_t const *p_event) {
   if (p_event->type == NRF_DRV_SAADC_EVT_DONE) {
     nrf_saadc_value_t adc_result;
     uint16_t          batt_lvl_in_milli_volts;
-    uint8_t           percentage_batt_lvl;
+    static uint8_t    percentage_batt_lvl = 0;
     uint32_t          err_code;
 
     adc_result = p_event->data.done.p_buffer[0];
@@ -258,9 +256,14 @@ void saadc_event_handler(nrf_drv_saadc_evt_t const *p_event) {
 
     batt_lvl_in_milli_volts =
         ADC_RESULT_IN_MILLI_VOLTS(adc_result) + DIODE_FWD_VOLT_DROP_MILLIVOLTS;
-    percentage_batt_lvl = battery_level_in_percent(batt_lvl_in_milli_volts);
+    UNUSED_VARIABLE(batt_lvl_in_milli_volts);
+    // percentage_batt_lvl = battery_level_in_percent(batt_lvl_in_milli_volts);
+    percentage_batt_lvl = (percentage_batt_lvl + 1) % 101;
 
     err_code = ble_bas_battery_level_update(&m_bas, percentage_batt_lvl, BLE_CONN_HANDLE_ALL);
+    if (err_code == NRF_ERROR_BUSY || err_code == NRF_ERROR_RESOURCES) {
+      NRF_LOG_INFO("battery queue too busy");
+    }
     if ((err_code != NRF_SUCCESS) && (err_code != NRF_ERROR_INVALID_STATE) &&
         (err_code != NRF_ERROR_RESOURCES) && (err_code != NRF_ERROR_BUSY) &&
         (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING)) {

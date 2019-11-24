@@ -47,6 +47,7 @@ Due to diverse ecosystem, use Apple as a reference since Apple specs isn't reall
 ## BLE
 
 [BLE Useful Lessons](https://blefirst.wordpress.com/2016/10/23/lesson-3-sleep-clock-accuracy/)
+[BLE Notif and Physical Layer](https://stackoverflow.com/questions/44951078/when-how-is-a-ble-gatt-notify-indicate-is-send-on-physical-layer)
 
 ### Power Calculations
 

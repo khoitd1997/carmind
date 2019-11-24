@@ -18,10 +18,23 @@
         android:text="@string/button_scan_in_background" />
 
     <Button
+        android:id="@+id/disconnect_button"
+        android:layout_width="173dp"
+        android:layout_height="wrap_content"
+        android:text="@string/button_disconnect" />
+
+    <Button
         android:id="@+id/scan_toggle_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/button_start_scan" />
+
+    <TextView
+        android:id="@+id/connection_state"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Default"
+        />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/scan_results"
@@ -29,4 +42,5 @@
         android:layout_height="match_parent"
         android:scrollbars="vertical"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
 </LinearLayout>
