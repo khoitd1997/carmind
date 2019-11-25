@@ -3,6 +3,7 @@
     package="com.example.carmind">
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!--    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />-->
 
     <application
@@ -13,7 +14,17 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <receiver android:name=".GeofenceBroadcastReceiver" />
+        <receiver android:name=".GeofenceBroadcastReceiver">
+            <!--            <intent-filter>-->
+            <!--                <action android:name="GEO"-->
+            <!--            </intent-filter>-->
+        </receiver>
+
+        <service
+            android:name=".BleService"
+            android:enabled="true"
+            android:exported="true" />
+
         <activity
             android:name=".MainActivity"
             android:label="@string/app_name"

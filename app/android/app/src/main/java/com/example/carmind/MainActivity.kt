@@ -54,8 +54,8 @@ class MainActivity : AppCompatActivity() {
         setupActionBarWithNavController(navController, appBarConfiguration)
         navView.setupWithNavController(navController)
 
-        if (!isLocationPermissionGranted()) {
-            this.requestLocationPermission()
+        if (!isPermissionGranted()) {
+            this.requestPermission()
         }
     }
 
@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         Log.v("event", "permission granted callback")
-        if (isLocationPermissionGranted(requestCode, grantResults)) {
+        if (isPermissionGranted()) {
             val fragment = HomeFragment()
             supportFragmentManager
                 .beginTransaction()

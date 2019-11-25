@@ -9,7 +9,7 @@ android {
     buildToolsVersion "29.0.2"
     defaultConfig {
         applicationId "com.example.carmind"
-        minSdkVersion 27
+        minSdkVersion 28
         targetSdkVersion 27
         versionCode 1
         versionName "1.0"

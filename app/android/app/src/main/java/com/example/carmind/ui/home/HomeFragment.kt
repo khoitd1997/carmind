@@ -71,7 +71,7 @@ class HomeFragment : Fragment() {
 
     private val geofencePendingIntent: PendingIntent by lazy {
         val intent = Intent(context, GeofenceBroadcastReceiver::class.java)
-        PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+        PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_CANCEL_CURRENT)
     }
 
     private val geofenceRequest: GeofencingRequest by lazy {
@@ -80,7 +80,7 @@ class HomeFragment : Fragment() {
         geofenceList.add(
             Geofence.Builder()
                 .setRequestId("parking_structure_1")
-                .setCircularRegion(33.7578, -117.93, 1000f)
+                .setCircularRegion(33.757832, -117.938904, 100f)
                 .setExpirationDuration(NEVER_EXPIRE)
                 .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT)
                 .build()
@@ -105,7 +105,7 @@ class HomeFragment : Fragment() {
     ): View? {
         super.onCreateView(inflater, container, savedInstanceState)
 
-        if (context?.isLocationPermissionGranted()!!) {
+        if (context?.isPermissionGranted()!!) {
             return inflater.inflate(R.layout.fragment_home, container, false)
         }
         return null
@@ -114,7 +114,7 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        if (context?.isLocationPermissionGranted()!!) {
+        if (context?.isPermissionGranted()!!) {
             registerGeofence()
             scanBleDevices()
             configureResultList()
