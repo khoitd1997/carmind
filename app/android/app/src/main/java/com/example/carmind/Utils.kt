@@ -3,6 +3,7 @@ package com.example.carmind
 import android.Manifest.permission
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.annotation.StringRes
@@ -43,4 +44,17 @@ internal fun Activity.showSnackbarShort(text: CharSequence) {
 
 internal fun Activity.showSnackbarShort(@StringRes text: Int) {
     Snackbar.make(findViewById(android.R.id.content), text, Snackbar.LENGTH_SHORT).show()
+}
+
+fun startBleService(context: Context?) {
+    Log.v("event", "geofence starting ble service")
+    val serviceIntent = Intent(context, BleService::class.java)
+    serviceIntent.action = BleService.ACTION_START_FOREGROUND_SERVICE
+    ContextCompat.startForegroundService(context!!, serviceIntent)
+}
+
+fun stopBleService(context: Context?) {
+    val serviceIntent = Intent(context, BleService::class.java)
+    serviceIntent.action = BleService.ACTION_STOP_FOREGROUND_SERVICE
+    ContextCompat.startForegroundService(context!!, serviceIntent)
 }

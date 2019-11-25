@@ -11,40 +11,24 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import com.example.carmind.*
+import com.example.carmind.BleService
+import com.example.carmind.GeofenceBroadcastReceiver
+import com.example.carmind.R
+import com.example.carmind.isPermissionGranted
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.Geofence.NEVER_EXPIRE
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
-import com.jakewharton.rx.ReplayingShare
-import com.polidea.rxandroidble2.RxBleConnection
-import com.polidea.rxandroidble2.RxBleDevice
-import com.polidea.rxandroidble2.exceptions.BleScanException
-import com.polidea.rxandroidble2.scan.ScanFilter
-import com.polidea.rxandroidble2.scan.ScanSettings
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.Disposable
-import io.reactivex.subjects.PublishSubject
 import kotlinx.android.synthetic.main.fragment_home.*
-import java.util.*
-import kotlin.collections.ArrayList
 
 class HomeFragment : Fragment() {
-    private val rxBleClient = CarmindApplication.rxBleClient
-    private lateinit var bleDevice: RxBleDevice
-
     private var prevReceived = -1
-
-    private var scanDisposable: Disposable? = null
-    private var connectDisposable: Disposable? = null
-    private var stateDisposable: Disposable? = null
-    private val disconnectTriggerSubject = PublishSubject.create<Unit>()
 
     private val resultsAdapter =
         ScanResultsAdapter { scanResult ->
             //            startActivity(context?.let { it1 -> MainActivity.newInstance(it1, scanResult.bleDevice.macAddress) })
             Log.v("handler", "user clicked on ${scanResult.bleDevice.macAddress}")
-            connectBleDevice(scanResult.bleDevice.macAddress)
+//            connectBleDevice(scanResult.bleDevice.macAddress)
         }
 
     private fun registerGeofence() {
@@ -95,12 +79,6 @@ class HomeFragment : Fragment() {
         }.build()
     }
 
-    private fun getBondedMacAddr(): List<String> {
-        return rxBleClient.bondedDevices.filter {
-            it?.name?.contains("Carmind") ?: false
-        }.map { it.macAddress!! }
-    }
-
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -119,7 +97,7 @@ class HomeFragment : Fragment() {
 
         if (context?.isPermissionGranted()!!) {
             registerGeofence()
-            scanBleDevices()
+//            scanBleDevices()
             configureResultList()
 
             scan_toggle_btn.setOnClickListener {
@@ -128,35 +106,16 @@ class HomeFragment : Fragment() {
                         context?.bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
                     }
                 } else {
-                    sayHello(view)
+                    sendMsg(BleService.Companion.BleIpcCmd.START_SCAN, null)
                 }
-                scanBleDevices()
+//                scanBleDevices()
             }
             disconnect_button.setOnClickListener {
-                unbondDevice()
-                triggerDisconnect()
+                //                unbondDevice()
+//                triggerDisconnect()
             }
         }
         Log.v("event", "view created")
-    }
-
-    private fun connectBleDevice(macAddr: String) {
-        bleDevice = rxBleClient.getBleDevice(macAddr)
-        bleDevice.observeConnectionStateChanges()
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe { onConnectionStateChange(it) }
-            .let { stateDisposable = it }
-
-        bleDevice.establishConnection(true)
-            .takeUntil(disconnectTriggerSubject)
-            .compose(ReplayingShare.instance())
-            .doFinally { activity?.runOnUiThread { dispose() } }
-            .flatMap { it.setupNotification(UUID.fromString("00002A19-0000-1000-8000-00805F9B34FB")) }
-            .doOnNext { activity?.runOnUiThread { notificationHasBeenSetUp() } }
-            .flatMap { it }
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe({ onNotificationReceived(it) }, { onNotificationSetupFailure(it) })
-            .let { connectDisposable = it }
     }
 
     private fun configureResultList() {
@@ -167,156 +126,50 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun onConnectionStateChange(newState: RxBleConnection.RxBleConnectionState) {
-        connection_state.text = newState.toString()
-    }
-
-    private fun unbondDevice() {
-        if (::bleDevice.isInitialized && bleDevice.connectionState != RxBleConnection.RxBleConnectionState.DISCONNECTED) {
-            try {
-                bleDevice.bluetoothDevice::class.java.getMethod("removeBond")
-                    .invoke(bleDevice.bluetoothDevice)
-            } catch (e: Exception) {
-                Log.e("event", "Removing bond has been failed. ${e.message}")
-            }
-        }
-        Log.v("event", "bonded devices cnt after unbond: ${getBondedMacAddr().size}")
-    }
-
-    private fun triggerDisconnect() {
-        if (::bleDevice.isInitialized && bleDevice.connectionState != RxBleConnection.RxBleConnectionState.DISCONNECTED) {
-            disconnectTriggerSubject.onNext(Unit)
-            connectDisposable?.dispose()
-            connectDisposable = null
-        }
-    }
-
-    private val scanSettings: ScanSettings by lazy {
-        ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-            .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
-            .build()
-    }
-
-    private val scanFilter: ScanFilter by lazy {
-        ScanFilter.Builder()
-//            .setDeviceName("Carmind")
-            .build()
-    }
-
-    private fun scanBleDevices() {
-        rxBleClient.scanBleDevices(scanSettings, scanFilter)
-            .observeOn(AndroidSchedulers.mainThread())
-            .doFinally {
-                Log.v("event", "stopped scanning")
-                dispose()
-            }
-            .subscribe(
-                {
-                    resultsAdapter.addScanResult(it)
-                    if (((::bleDevice.isInitialized
-                                && bleDevice.connectionState == RxBleConnection.RxBleConnectionState.DISCONNECTED)
-                                || !::bleDevice.isInitialized)
-                        && getBondedMacAddr().contains(it.bleDevice.macAddress)
-                    ) {
-                        Log.v("event", "connecting device")
-                        connectBleDevice(it.bleDevice.macAddress)
-                    }
-                },
-                { onScanFailure(it) }
-            )
-            .let { scanDisposable = it }
-    }
-
     private fun dispose() {
-//        Log.v("event", "disconnected")
-        scanDisposable?.dispose()
-        scanDisposable = null
         resultsAdapter.clearScanResults()
-//        scanBleDevices()
-    }
-
-    private fun onScanFailure(throwable: Throwable) {
-        if (throwable is BleScanException) Log.v("scan", throwable.toString())
-    }
-
-    private fun onNotificationReceived(bytes: ByteArray) {
-        val receivedBatLevel = bytes[0].toInt()
-        Log.v("event", "bytes are $receivedBatLevel")
-        if (prevReceived == -1) {
-            prevReceived = receivedBatLevel
-        } else {
-            if ((prevReceived == 100 && receivedBatLevel != 0) || (prevReceived != 100 && receivedBatLevel - 1 != prevReceived)) {
-                Log.v("event", "missed one: $prevReceived $receivedBatLevel")
-            }
-            prevReceived = receivedBatLevel
-        }
-    }
-
-    private fun onNotificationSetupFailure(throwable: Throwable) {
-//        activity?.showSnackbarShort("Notifications error: $throwable")
-        Log.v("event", "notification complete/error: $throwable")
-    }
-
-    private fun notificationHasBeenSetUp() =
-        activity?.showSnackbarShort("Notifications has been set up")
-
-    override fun onPause() {
-        super.onPause()
-
-        scanDisposable?.dispose()
-        triggerDisconnect()
-
-        if (bound) {
-            context?.unbindService(mConnection)
-            bound = false
-        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        stateDisposable?.dispose()
     }
 
-    /** Messenger for communicating with the service.  */
     private var mService: Messenger? = null
-
-    /** Flag indicating whether we have called bind on the service.  */
     private var bound: Boolean = false
-
-    /**
-     * Class for interacting with the main interface of the service.
-     */
     private val mConnection = object : ServiceConnection {
-
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
-            // This is called when the connection with the service has been
-            // established, giving us the object we can use to
-            // interact with the service.  We are communicating with the
-            // service using a Messenger, so here we get a client-side
-            // representation of that from the raw IBinder object.
             mService = Messenger(service)
             bound = true
-            sayHello(view!!)
+            sendMsg(
+                BleService.Companion.BleIpcCmd.INIT,
+                BleService.Companion.InitInfo(resultsAdapter)
+            )
         }
 
         override fun onServiceDisconnected(className: ComponentName) {
-            // This is called when the connection with the service has been
-            // unexpectedly disconnected -- that is, its process crashed.
             mService = null
             bound = false
         }
     }
 
-    fun sayHello(v: View) {
-        if (!bound) return
-        // Create and send a message to the service, using a supported 'what' value
-        val msg: Message = Message.obtain(null, MSG_SAY_HELLO, resultsAdapter)
+    private fun sendMsg(what: BleService.Companion.BleIpcCmd, obj: Any?) {
+        val msg: Message = Message.obtain(null, what.ordinal, obj)
         try {
             mService?.send(msg)
         } catch (e: RemoteException) {
             e.printStackTrace()
         }
+    }
 
+    override fun onPause() {
+        super.onPause()
+
+//        scanDisposable?.dispose()
+//        triggerDisconnect()
+
+        if (bound) {
+            context?.unbindService(mConnection)
+            bound = false
+        }
     }
 }

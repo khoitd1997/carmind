@@ -7,7 +7,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.polidea.rxandroidble2.scan.ScanResult
 
-internal class ScanResultsAdapter(
+class ScanResultsAdapter(
     private val onClickListener: (ScanResult) -> Unit
 ) : RecyclerView.Adapter<ScanResultsAdapter.ViewHolder>() {
 
