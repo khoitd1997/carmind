@@ -4,14 +4,15 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
-import android.os.Build
-import android.os.IBinder
+import android.os.*
 import android.util.Log
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
+import com.example.carmind.ui.home.ScanResultsAdapter
 
-
-
+const val MSG_SAY_HELLO = 1
 
 class BleService : Service() {
     companion object {
@@ -49,7 +50,7 @@ class BleService : Service() {
                 )
 
                 val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setContentTitle("Foreground Service")
+                    .setContentTitle("Carmind")
                     .setContentText("Carmind working with BLE device")
                     .setSmallIcon(R.drawable.common_google_signin_btn_icon_light)
                     .setContentIntent(pendingIntent)
@@ -74,7 +75,40 @@ class BleService : Service() {
         super.onDestroy()
     }
 
+    /**
+     * Target we publish for clients to send messages to IncomingHandler.
+     */
+    private lateinit var mMessenger: Messenger
+
+    /**
+     * Handler of incoming messages from clients.
+     */
+    internal class IncomingHandler(
+        context: Context,
+        private val applicationContext: Context = context.applicationContext
+    ) : Handler() {
+        override fun handleMessage(msg: Message) {
+            when (msg.what) {
+                MSG_SAY_HELLO -> {
+                    Toast.makeText(applicationContext, "hello!", Toast.LENGTH_SHORT).show()
+                    val receivedObj = msg.obj
+                    if (receivedObj is ScanResultsAdapter) {
+                        Log.v("event", "received result adapter")
+                        receivedObj.clearScanResults()
+                    }
+                }
+                else -> super.handleMessage(msg)
+            }
+        }
+    }
+
+    /**
+     * When binding to the service, we return an interface to our messenger
+     * for sending messages to the service.
+     */
     override fun onBind(intent: Intent): IBinder? {
-        return null
+        Toast.makeText(applicationContext, "binding", Toast.LENGTH_SHORT).show()
+        mMessenger = Messenger(IncomingHandler(this))
+        return mMessenger.binder
     }
 }
