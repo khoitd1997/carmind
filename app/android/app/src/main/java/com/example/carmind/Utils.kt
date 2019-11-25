@@ -12,27 +12,27 @@ import com.google.android.material.snackbar.Snackbar
 import com.polidea.rxandroidble2.RxBleConnection
 import com.polidea.rxandroidble2.RxBleDevice
 
-private const val LOCATION_PERMISSION_REQUEST_CODE = 101
+private const val PERMISSION_REQUEST_CODE = 101
+private val permissions =
+    arrayOf(permission.ACCESS_FINE_LOCATION, permission.FOREGROUND_SERVICE)
 
-internal fun Context.isLocationPermissionGranted(): Boolean {
-    val isGranted = ContextCompat.checkSelfPermission(
-        this,
-        permission.ACCESS_FINE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
-
-    Log.v("permission", "Is granted $isGranted")
-    return isGranted
+internal fun Context.isPermissionGranted(): Boolean {
+    for (p in permissions) {
+        if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
+            Log.v("event", "permission not granted for $p")
+            return false
+        }
+    }
+    Log.v("event", "all permission granted")
+    return true
 }
 
-internal fun Activity.requestLocationPermission() =
+internal fun Activity.requestPermission() =
     ActivityCompat.requestPermissions(
         this,
-        arrayOf(permission.ACCESS_FINE_LOCATION),
-        LOCATION_PERMISSION_REQUEST_CODE
+        permissions,
+        PERMISSION_REQUEST_CODE
     )
-
-internal fun isLocationPermissionGranted(requestCode: Int, grantResults: IntArray) =
-    requestCode == LOCATION_PERMISSION_REQUEST_CODE && grantResults[0] == PackageManager.PERMISSION_GRANTED
 
 internal val RxBleDevice.isConnected: Boolean
     get() = connectionState == RxBleConnection.RxBleConnectionState.CONNECTED
