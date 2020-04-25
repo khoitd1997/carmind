@@ -25,10 +25,12 @@ class HomeFragment : Fragment() {
     private var prevReceived = -1
 
     private val resultsAdapter =
-        ScanResultsAdapter { scanResult ->
-            //            startActivity(context?.let { it1 -> MainActivity.newInstance(it1, scanResult.bleDevice.macAddress) })
-            Log.v("handler", "user clicked on ${scanResult.bleDevice.macAddress}")
-//            connectBleDevice(scanResult.bleDevice.macAddress)
+        ScanResultsAdapter {
+            sendMsg(
+                BleService.Companion.BleIpcCmd.CONNECT_DEVICE,
+                BleService.Companion.ConnectInfo(it.bleDevice.macAddress)
+            )
+            Log.v("handler", "user clicked on ${it.bleDevice.macAddress}")
         }
 
     private fun registerGeofence() {
@@ -95,24 +97,22 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        Intent(context, BleService::class.java).also { intent ->
+            context?.bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
+        }
+
         if (context?.isPermissionGranted()!!) {
             registerGeofence()
-//            scanBleDevices()
             configureResultList()
 
             scan_toggle_btn.setOnClickListener {
-                if (!bound) {
-                    Intent(context, BleService::class.java).also { intent ->
-                        context?.bindService(intent, mConnection, Context.BIND_AUTO_CREATE)
-                    }
-                } else {
-                    sendMsg(BleService.Companion.BleIpcCmd.START_SCAN, null)
-                }
-//                scanBleDevices()
+                sendMsg(BleService.Companion.BleIpcCmd.START_SCAN, null)
             }
             disconnect_button.setOnClickListener {
-                //                unbondDevice()
-//                triggerDisconnect()
+                sendMsg(
+                    BleService.Companion.BleIpcCmd.DISCONNECT_DEVICE,
+                    BleService.Companion.DisconnectInfo(true)
+                )
             }
         }
         Log.v("event", "view created")
@@ -132,6 +132,7 @@ class HomeFragment : Fragment() {
 
     override fun onDestroy() {
         super.onDestroy()
+        sendMsg(BleService.Companion.BleIpcCmd.DEINIT, null)
     }
 
     private var mService: Messenger? = null
@@ -153,11 +154,13 @@ class HomeFragment : Fragment() {
     }
 
     private fun sendMsg(what: BleService.Companion.BleIpcCmd, obj: Any?) {
-        val msg: Message = Message.obtain(null, what.ordinal, obj)
-        try {
-            mService?.send(msg)
-        } catch (e: RemoteException) {
-            e.printStackTrace()
+        if (bound) {
+            val msg: Message = Message.obtain(null, what.ordinal, obj)
+            try {
+                mService?.send(msg)
+            } catch (e: RemoteException) {
+                e.printStackTrace()
+            }
         }
     }
 

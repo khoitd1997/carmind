@@ -16,10 +16,11 @@ import com.polidea.rxandroidble2.*
 import com.polidea.rxandroidble2.exceptions.BleScanException
 import com.polidea.rxandroidble2.scan.ScanFilter
 import com.polidea.rxandroidble2.scan.ScanSettings
+import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.Disposable
-import io.reactivex.subjects.PublishSubject
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 class BleService : Service() {
     companion object {
@@ -28,19 +29,27 @@ class BleService : Service() {
         const val ACTION_START_FOREGROUND_SERVICE = "ACTION_START_FOREGROUND_SERVICE"
         const val ACTION_STOP_FOREGROUND_SERVICE = "ACTION_STOP_FOREGROUND_SERVICE"
 
-        enum class BleIpcCmd { INIT, START_SCAN, TEST }
+        enum class BleIpcCmd {
+            INIT, DEINIT,
+            START_SCAN, STOP_SCAN,
+            CONNECT_DEVICE, DISCONNECT_DEVICE,
+            TEST
+        }
 
         data class InitInfo(val scanAdapter: ScanResultsAdapter)
+        data class ConnectInfo(val macAddr: String)
+        data class DisconnectInfo(val unbond: Boolean)
     }
 
     lateinit var rxBleClient: RxBleClient
         private set
-    private lateinit var bleDevice: RxBleDevice
+    private var bleDevice: RxBleDevice? = null
 
     private var scanDisposable: Disposable? = null
+    private var scanRefreshDisposable: Disposable? = null
+
     private var connectDisposable: Disposable? = null
     private var stateDisposable: Disposable? = null
-    private val disconnectTriggerSubject = PublishSubject.create<Unit>()
 
     override fun onCreate() {
         super.onCreate()
@@ -120,13 +129,33 @@ class BleService : Service() {
                         scanResultsAdapter = (receivedObj as InitInfo).scanAdapter
                     }
 
+                    BleIpcCmd.DEINIT -> {
+                        scanResultsAdapter = null
+                        scanDisposable?.dispose()
+                    }
+
                     BleIpcCmd.START_SCAN -> {
                         parentContext.scanBleDevices()
+                    }
+
+                    BleIpcCmd.STOP_SCAN -> {
+                        scanDisposable?.dispose()
+                    }
+
+                    BleIpcCmd.CONNECT_DEVICE -> {
+                        val connectInfo = receivedObj as ConnectInfo
+                        connectDevice(connectInfo.macAddr)
+                    }
+
+                    BleIpcCmd.DISCONNECT_DEVICE -> {
+                        val disconnectInfo = receivedObj as DisconnectInfo
+                        disconnectDevice(disconnectInfo.unbond)
                     }
 
                     BleIpcCmd.TEST -> {
                         parentContext.scanResultsAdapter?.clearScanResults()
                     }
+
                     else -> super.handleMessage(msg)
                 }
             }
@@ -139,43 +168,46 @@ class BleService : Service() {
         return mMessenger.binder
     }
 
-    private fun connectBleDevice(macAddr: String) {
+    private fun connectDevice(macAddr: String) {
         bleDevice = rxBleClient.getBleDevice(macAddr)
-        bleDevice.observeConnectionStateChanges()
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe { onConnectionStateChange(it) }
-            .let { stateDisposable = it }
+        bleDevice?.let { dev ->
+            dev.observeConnectionStateChanges()
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe { onConnectionStateChange(it) }
+                .let { stateDisposable = it }
 
-        bleDevice.establishConnection(true)
-            .takeUntil(disconnectTriggerSubject)
-            .compose(ReplayingShare.instance())
-//            .doFinally { activity?.runOnUiThread { dispose() } }
-            .flatMap { it.setupNotification(UUID.fromString("00002A19-0000-1000-8000-00805F9B34FB")) }
+            dev.establishConnection(true)
+                .compose(ReplayingShare.instance())
+                .observeOn(AndroidSchedulers.mainThread())
+                .doFinally {
+                    connectDisposable = null
+                    bleDevice = null
+                }
+                .flatMap { it.setupNotification(UUID.fromString("00002A19-0000-1000-8000-00805F9B34FB")) }
 //            .doOnNext { activity?.runOnUiThread { notificationHasBeenSetUp() } }
-            .flatMap { it }
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe({ onNotificationReceived(it) }, { onNotificationSetupFailure(it) })
-            .let { connectDisposable = it }
+                .flatMap { it }
+                .subscribe({ onNotificationReceived(it) }, { onNotificationSetupFailure(it) })
+                .let { connectDisposable = it }
+        }
     }
 
     private fun unbondDevice() {
-        if (::bleDevice.isInitialized && bleDevice.connectionState != RxBleConnection.RxBleConnectionState.DISCONNECTED) {
+        bleDevice?.let { dev ->
             try {
-                bleDevice.bluetoothDevice::class.java.getMethod("removeBond")
-                    .invoke(bleDevice.bluetoothDevice)
+                dev.bluetoothDevice::class.java.getMethod("removeBond")
+                    .invoke(dev.bluetoothDevice)
             } catch (e: Exception) {
                 Log.e("event", "Removing bond has been failed. ${e.message}")
             }
+            Log.v("event", "bonded devices cnt after unbond: ${getBondedMacAddr().size}")
         }
-        Log.v("event", "bonded devices cnt after unbond: ${getBondedMacAddr().size}")
     }
 
-    private fun triggerDisconnect() {
-        if (::bleDevice.isInitialized && bleDevice.connectionState != RxBleConnection.RxBleConnectionState.DISCONNECTED) {
-            disconnectTriggerSubject.onNext(Unit)
-            connectDisposable?.dispose()
-            connectDisposable = null
+    private fun disconnectDevice(unbond: Boolean) {
+        if (unbond) {
+            unbondDevice()
         }
+        connectDisposable?.dispose()
     }
 
     private fun getBondedMacAddr(): List<String> {
@@ -198,28 +230,40 @@ class BleService : Service() {
     }
 
     private fun scanBleDevices() {
-        rxBleClient.scanBleDevices(scanSettings, scanFilter)
-            .observeOn(AndroidSchedulers.mainThread())
-            .doFinally {
-                Log.v("event", "stopped scanning")
-                dispose()
-            }
-            .subscribe(
-                {
-                    scanResultsAdapter?.addScanResult(it)
-                    if (((::bleDevice.isInitialized
-                                && bleDevice.connectionState == RxBleConnection.RxBleConnectionState.DISCONNECTED)
-                                || !::bleDevice.isInitialized)
-                        && getBondedMacAddr().contains(it.bleDevice.macAddress)
-                    ) {
-                        Log.v("event", "connecting device")
-                        connectBleDevice(it.bleDevice.macAddress)
-                    }
-                },
-                { onScanFailure(it) }
-            )
-            .let { scanDisposable = it }
+        if (!isScanning()) {
+            rxBleClient.scanBleDevices(scanSettings, scanFilter)
+                .observeOn(AndroidSchedulers.mainThread())
+                .doFinally {
+                    scanDisposable = null
+                    scanRefreshDisposable?.dispose()
+
+                    Log.v("event", "stopped scanning")
+//                    dispose()
+                }
+                .subscribe(
+                    {
+                        scanResultsAdapter?.addScanResult(it)
+                        if (bleDevice == null && getBondedMacAddr().contains(it.bleDevice.macAddress)
+                        ) {
+                            Log.v("event", "connecting device")
+                            connectDevice(it.bleDevice.macAddress)
+                        }
+                    },
+                    { onScanFailure(it) }
+                )
+                .let {
+                    scanDisposable = it
+
+                    Observable.interval(5, 5, TimeUnit.SECONDS)
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .doFinally { scanRefreshDisposable = null }
+                        .subscribe { scanResultsAdapter?.clearScanResults() }
+                        .let { it2 -> scanRefreshDisposable = it2 }
+                }
+        }
     }
+
+    private fun isScanning() = scanDisposable != null
 
     private fun dispose() {
 //        Log.v("event", "disconnected")
